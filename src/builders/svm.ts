@@ -21,7 +21,7 @@ import type { BuildSvmTxParams, SvmTransactionResult, SerializedInstruction } fr
 import bs58 from 'bs58';
 
 /**
- * Build unsigned SVM (Solana/Fogo) transaction
+ * Build unsigned SVM transaction
  */
 export async function buildSvmTransaction(
   quote: Quote,
@@ -83,7 +83,6 @@ export async function buildSvmTransaction(
     quoteType: quote.type,
     transaction: serializedTransaction,
     signers: result.signers.length > 0 ? result.signers.map(keypairToBase58) : undefined,
-    // Keep old fields for backward compatibility
     instructions: result.instructions.map(serializeInstruction),
     lookupTables: result.lookupTables.map(lt => lt.key.toBase58()),
     swapMessageV0Params: result.swapMessageV0Params ? {
