@@ -1,0 +1,28 @@
+{
+  "name": "mayan-tx-builder",
+  "version": "1.0.0",
+  "description": "Mayan Finance Transaction Builder API - Returns unsigned transactions for cross-chain swaps",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/express": "^4.17.21"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@mayanfinance/swap-sdk": "^12.2.2",
+    "@mysten/sui": "^1.17.0",
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^6.0.0",
+    "ethers": "^6.16.0",
+    "express": "^4.21.2"
+  }
+}
