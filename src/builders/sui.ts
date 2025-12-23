@@ -39,6 +39,9 @@ export async function buildSuiTransaction(
     usdcPermitSignature
   );
 
+  // Set the sender address before building
+  transaction.setSender(swapperAddress);
+
   // Serialize the transaction to bytes
   const serializedTx = await transaction.build({ client: suiClient });
 
