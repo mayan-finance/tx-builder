@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 20m
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: tx-builder
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: tx-builder.mayan.finance
+    http:
+      paths:
+      - backend:
+          service:
+            name: tx-builder
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
