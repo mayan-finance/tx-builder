@@ -9,11 +9,6 @@ import {
 } from '@solana/web3.js';
 import {
   createSwapFromSolanaInstructions,
-  createMctpFromSolanaInstructions,
-  createSwiftFromSolanaInstructions,
-  createMonoChainFromSolanaInstructions,
-  createHyperCoreDepositFromSolanaInstructions,
-  getQuoteSuitableReferrerAddress,
   type Quote,
   type ReferrerAddresses,
 } from '@mayanfinance/swap-sdk';
@@ -37,17 +32,17 @@ export async function buildSvmTransaction(
   } = params;
 
   const payload = customPayload ? hexToBuffer(customPayload) : undefined;
-  const referrerAddress = getQuoteSuitableReferrerAddress(quote, referrerAddresses);
 
-  const result = await getInstructions(
+  const result = await createSwapFromSolanaInstructions(
     quote,
     swapperAddress,
     destinationAddress,
-    referrerAddress,
     referrerAddresses,
     connection,
-    payload,
-    usdcPermitSignature
+    {
+      customPayload: payload,
+      usdcPermitSignature,
+    }
   );
 
   // Build the versioned transaction
@@ -91,87 +86,6 @@ export async function buildSvmTransaction(
       tmpTokenAccountSecretKey: bs58.encode(result.swapMessageV0Params.tmpTokenAccount.secretKey),
     } : undefined,
   };
-}
-
-async function getInstructions(
-  quote: Quote,
-  swapperAddress: string,
-  destinationAddress: string,
-  referrerAddress: string | null,
-  referrerAddresses: ReferrerAddresses | undefined,
-  connection: Connection,
-  customPayload: Buffer | undefined,
-  usdcPermitSignature: string | undefined
-) {
-  const options = {
-    customPayload,
-    usdcPermitSignature,
-  };
-
-  switch (quote.type) {
-    case 'WH':
-      return createSwapFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddresses,
-        connection,
-        options
-      );
-
-    case 'MCTP':
-      return createMctpFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        connection,
-        { customPayload }
-      );
-
-    case 'SWIFT':
-      return createSwiftFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        connection,
-        undefined,
-        customPayload
-      );
-
-    case 'MONO_CHAIN':
-      return createMonoChainFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        connection
-      );
-
-    case 'SHUTTLE':
-      return createHyperCoreDepositFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        connection,
-        options
-      );
-
-    case 'FAST_MCTP':
-      return createMctpFromSolanaInstructions(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        connection,
-        { customPayload }
-      );
-
-    default:
-      throw new Error(`Unsupported quote type for SVM: ${quote.type}`);
-  }
 }
 
 function serializeInstruction(ix: TransactionInstruction): SerializedInstruction {

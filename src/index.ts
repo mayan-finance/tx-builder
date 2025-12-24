@@ -4,7 +4,7 @@ import type { ServerConfig } from './types';
 // Load configuration from environment variables
 const config: ServerConfig = {
   port: parseInt(process.env.PORT || '3000', 10),
-  expectedSignerAddress: process.env.EXPECTED_SIGNER_ADDRESS || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  expectedSignerAddress: process.env.EXPECTED_SIGNER_ADDRESS || '0xe8FDd6f6D10532bd49Cced5502CAa483E232E637',
   solanaRpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
   fogoRpcUrl: process.env.FOGO_RPC_URL || 'https://rpc.fogo.network',
   suiRpcUrl: process.env.SUI_RPC_URL || 'https://fullnode.mainnet.sui.io',

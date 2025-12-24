@@ -1,15 +1,9 @@
 import {
   getSwapFromEvmTxPayload,
-  getMctpFromEvmTxPayload,
-  getSwiftFromEvmTxPayload,
   getSwiftFromEvmGasLessParams,
-  getFastMctpFromEvmTxPayload,
-  getMonoChainFromEvmTxPayload,
-  getHyperCoreDepositFromEvmTxPayload,
   getQuoteSuitableReferrerAddress,
   type Quote,
   type Erc20Permit,
-  type ReferrerAddresses,
 } from '@mayanfinance/swap-sdk';
 import type { BuildEvmTxParams, EvmTransactionResult } from '../types';
 
@@ -34,11 +28,11 @@ export async function buildEvmTransaction(
   } = params;
 
   const payload = customPayload ? hexToBuffer(customPayload) : undefined;
-  const referrerAddress = getQuoteSuitableReferrerAddress(quote, referrerAddresses);
   const permitParam: Erc20Permit | undefined = permit;
 
   // Gasless SWIFT: User signs typed data, relayer submits on-chain
   if (quote.type === 'SWIFT' && quote.gasless) {
+    const referrerAddress = getQuoteSuitableReferrerAddress(quote, referrerAddresses);
     const gaslessParams = getSwiftFromEvmGasLessParams(
       quote,
       swapperAddress,
@@ -67,16 +61,16 @@ export async function buildEvmTransaction(
   }
 
   // Non-gasless: Build transaction calldata
-  const txPayload = await getTransactionPayload(
+  const txPayload = await getSwapFromEvmTxPayload(
     quote,
     swapperAddress,
     destinationAddress,
-    referrerAddress,
     referrerAddresses,
+    swapperAddress,
     signerChainId,
-    permitParam,
     payload,
-    usdcPermitSignature
+    permitParam,
+    usdcPermitSignature ? { usdcPermitSignature } : undefined
   );
 
   // Resolve the 'to' address if it's a promise
@@ -99,91 +93,6 @@ export async function buildEvmTransaction(
       params: txPayload._forwarder.params,
     } : undefined,
   };
-}
-
-async function getTransactionPayload(
-  quote: Quote,
-  swapperAddress: string,
-  destinationAddress: string,
-  referrerAddress: string | null,
-  referrerAddresses: ReferrerAddresses | undefined,
-  signerChainId: number | string,
-  permit: Erc20Permit | undefined,
-  payload: Buffer | undefined,
-  usdcPermitSignature: string | undefined
-) {
-  const options = usdcPermitSignature ? { usdcPermitSignature } : undefined;
-
-  switch (quote.type) {
-    case 'WH':
-      return getSwapFromEvmTxPayload(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddresses,
-        swapperAddress,
-        signerChainId,
-        payload,
-        permit,
-        options
-      );
-
-    case 'MCTP':
-      return getMctpFromEvmTxPayload(
-        quote,
-        destinationAddress,
-        referrerAddress,
-        signerChainId,
-        permit,
-        payload
-      );
-
-    case 'SWIFT':
-      return getSwiftFromEvmTxPayload(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        signerChainId,
-        permit,
-        payload
-      );
-
-    case 'FAST_MCTP':
-      return getFastMctpFromEvmTxPayload(
-        quote,
-        destinationAddress,
-        referrerAddress,
-        signerChainId,
-        permit,
-        payload
-      );
-
-    case 'MONO_CHAIN':
-      return getMonoChainFromEvmTxPayload(
-        quote,
-        destinationAddress,
-        referrerAddress,
-        signerChainId,
-        permit
-      );
-
-    case 'SHUTTLE':
-      // HyperCore deposit (for hypercore destination)
-      return getHyperCoreDepositFromEvmTxPayload(
-        quote,
-        swapperAddress,
-        destinationAddress,
-        referrerAddress,
-        signerChainId,
-        permit,
-        payload,
-        options
-      );
-
-    default:
-      throw new Error(`Unsupported quote type for EVM: ${quote.type}`);
-  }
 }
 
 function hexToBuffer(hex: string): Buffer {
