@@ -46,9 +46,32 @@ export interface BuildSvmTxParams extends BuildTxBaseParams {
   usdcPermitSignature?: string;
 }
 
+// SUI coin input - either by object ID or as a result from prior move call
+export type SuiCoinInput =
+  | { objectId: string }
+  | { result: SuiNestedResult }
+  | { result: SuiInputRef };
+
+// Reference to a nested result from a move call: [transactionIndex, resultIndex]
+export type SuiNestedResult = {
+  $kind: 'NestedResult';
+  NestedResult: [number, number];
+};
+
+// Reference to a transaction input
+export type SuiInputRef = {
+  $kind: 'Input';
+  Input: number;
+  type?: 'object';
+};
+
 export interface BuildSuiTxParams extends BuildTxBaseParams {
   swapperAddress: string;
   usdcPermitSignature?: string;
+  // Composable transaction options
+  inputCoin?: SuiCoinInput;
+  whFeeCoin?: SuiCoinInput;
+  builtTransaction?: string; // base64 encoded serialized transaction to build upon
 }
 
 // API Request body
