@@ -1,163 +1,329 @@
-const address = '0xEab4Fb2De5a05Ba392eB2614bd2293592d455A4f';
+/**
+ * EVM Transaction Examples
+ * 
+ * Tests:
+ * 1. Swift: Base -> Solana (USDC)
+ * 2. MCTP: Base -> Sui (USDC)
+ * 3. Fast MCTP: Base -> Solana (USDC)
+ * 4. Monochain: Base (ETH -> USDC)
+ * 5. Swift with Permit: Base -> Solana (USDC)
+ */
 
-const signedQuote = `
-{
-    "maxUserGasDrop": 0.0011093756055117437,
-    "sendTransactionCost": 0,
-    "rentCost": "3000000",
-    "gasless": false,
-    "quoteId": "0x50c39faf07ae69dd2ec1ffb050153edd",
-    "swiftVerifiedInputAddress": "",
-    "swiftInputContractStandard": "erc20",
-    "swiftVersion": "V1",
-    "swiftMayanContract": "0xC38e4e6A15593f908255214653d3D947CA1c2338",
-    "swiftAuctionMode": 2,
-    "minMiddleAmount": 10,
-    "swiftInputContract": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    "swiftInputDecimals": 6,
-    "slippageBps": 5,
-    "effectiveAmountIn": 10,
-    "effectiveAmountIn64": "10000000",
-    "expectedAmountOut": 9.981444,
-    "price": 0.9997457212770066,
-    "priceImpact": null,
-    "minAmountOut": 9.974999,
-    "minReceived": 9.974999,
-    "route": null,
-    "swapRelayerFee": null,
-    "swapRelayerFee64": null,
-    "redeemRelayerFee": null,
-    "redeemRelayerFee64": null,
-    "solanaRelayerFee": null,
-    "solanaRelayerFee64": null,
-    "refundRelayerFee": null,
-    "refundRelayerFee64": "1229",
-    "cancelRelayerFee64": "3714",
-    "submitRelayerFee64": "0",
-    "deadline64": "1766243613",
-    "clientRelayerFeeSuccess": null,
-    "clientRelayerFeeRefund": 0.00494130688307124,
-    "fromToken": {
-        "name": "USDC",
-        "standard": "erc20",
-        "hasAuction": true,
-        "symbol": "USDC",
-        "mint": "EfqRM8ZGWhDTKJ7BHmFvNagKVu3AxQRDQs8WMMaoBCu6",
-        "verified": true,
-        "contract": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        "chainId": 8453,
-        "wChainId": 30,
-        "decimals": 6,
-        "logoURI": "https://assets.coingecko.com/coins/images/6319/small/usdc.png?1696506694",
-        "coingeckoId": "usd-coin",
-        "pythUsdPriceId": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        "realOriginContractAddress": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        "realOriginChainId": 30,
-        "supportsPermit": true,
-        "peggedAsset": "USD"
-    },
-    "fromChain": "base",
-    "toToken": {
-        "name": "USDC",
-        "standard": "erc20",
-        "hasAuction": true,
-        "symbol": "USDC",
-        "mint": "CR4xnGrhsu1fWNPoX4KbTUUtqGMF3mzRLfj4S6YEs1Yo",
-        "verified": true,
-        "contract": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-        "chainId": 42161,
-        "wChainId": 23,
-        "decimals": 6,
-        "logoURI": "https://assets.coingecko.com/coins/images/6319/small/usdc.png?1696506694",
-        "coingeckoId": "usd-coin",
-        "pythUsdPriceId": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        "realOriginContractAddress": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-        "realOriginChainId": 23,
-        "supportsPermit": true,
-        "peggedAsset": "USD"
-    },
-    "toTokenPrice": 0.99985366,
-    "toChain": "arbitrum",
-    "mintDecimals": null,
-    "gasDrop": 0,
-    "eta": 1,
-    "etaSeconds": 10,
-    "clientEta": "10s",
-    "bridgeFee": 0,
-    "suggestedPriorityFee": 0,
-    "type": "SWIFT",
-    "priceStat": {
-        "ratio": 0.9997461285625,
-        "status": "GOOD"
-    },
-    "referrerBps": 0,
-    "protocolBps": 3,
-    "onlyBridging": false,
-    "sourceSwapExpense": 0,
-    "relayer": null,
-    "meta": {
-        "advertisedDescription": "Cheapest and Fastest",
-        "advertisedTitle": "Best",
-        "icon": "https://cdn.mayan.finance/fast_icon.png",
-        "switchText": "Switch to the best route",
-        "title": "Best"
-    },
-    "expectedAmountOutBaseUnits": "9981444",
-    "minAmountOutBaseUnits": "9974999",
-    "minReceivedBaseUnits": "9974999",
-    "signature": "0xf6cefe5b8cd26514507ca0004743893931a88d703cae82b6465d61e900bfb8af2c139aa91d32beb8b0f7d94dcf52a8248393b675d47d3934ae7b9a5f98a1e3441c"
-}`;
+import { ethers } from 'ethers';
 
-console.log("Sending request to build transaction");
-const response = await fetch('http://localhost:3000/build', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        quotes: JSON.parse(signedQuote),  // Parse the JSON string to object
-        params: {
-            swapperAddress: address,
-            destinationAddress: address,
-            signerChainId: 8453,
-        }
-    })
-});
-console.log("Response received");
-const result = await response.json();
-console.log("Status:", response.status);
-console.log("Result:", JSON.stringify(result, null, 2));
+const SERVER_URL = 'https://tx-builder.mayan.finance';
 
-// Sign and send the transaction
-if (result.success && result.transactions.length > 0) {
+const ADDRESSES = {
+    evm: '0xEab4Fb2De5a05Ba392eB2614bd2293592d455A4f',
+    solana: '6riUFsScbBHa6T14SfLC19AXAHgE8A5JuZwn2g7QZN73',
+    sui: '0x10649cdcee564178674f4fe719e5a8f48d6cc779684e022345ec16aacaf7b040',
+};
+
+const TOKENS = {
+    usdc_base: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+    usdc_solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    usdc_sui: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+    eth_base: '0x0000000000000000000000000000000000000000',
+};
+
+let wallet: ethers.Wallet | undefined;
+if (process.env.EVM_PRIVATE_KEY) {
+    wallet = new ethers.Wallet(
+        process.env.EVM_PRIVATE_KEY as string,
+        new ethers.JsonRpcProvider(process.env.BASE_RPC_URL as string || 'https://mainnet.base.org')
+    );
+}
+
+const CHAIN_IDS = { base: 8453 };
+
+async function fetchQuote(params: {
+    fromToken: string;
+    fromChain: string;
+    toToken: string;
+    toChain: string;
+    amountIn: number;
+    swift?: boolean;
+    mctp?: boolean;
+    fastMctp?: boolean;
+    monoChain?: boolean;
+}): Promise<any> {
+    const queryParams = new URLSearchParams({
+        amountIn: params.amountIn.toString(),
+        fromToken: params.fromToken,
+        fromChain: params.fromChain,
+        toToken: params.toToken,
+        toChain: params.toChain,
+        slippageBps: 'auto',
+        swift: (params.swift ?? false).toString(),
+        mctp: (params.mctp ?? false).toString(),
+        fastMctp: (params.fastMctp ?? false).toString(),
+        monoChain: (params.monoChain ?? false).toString(),
+        gasless: 'false',
+        wormhole: 'false',
+        shuttle: 'false',
+        onlyDirect: 'false',
+        fullList: 'false',
+        solanaProgram: 'FC4eXxkyrMPTjiYUpp4EAnkmwMbQyZ6NDCh1kfLn6vsf',
+        forwarderAddress: '0x337685fdaB40D39bd02028545a4FfA7D287cC3E2',
+        referrer: '7HN4qCvG2dP5oagZRxj2dTGPhksgRnKCaLPjtjKEr1Ho',
+        sdkVersion: '12_2_3',
+    });
+
+    const url = `https://price-api.mayan.finance/v3/quote?${queryParams}`;
+    console.log(`Fetching: ${params.fromChain} -> ${params.toChain}`);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Quote fetch failed: ${response.status}`);
+
+    const data = await response.json();
+    if (!data.quotes?.length) throw new Error('No quotes available');
+
+    console.log(`Got ${data.quotes[0].type} quote`);
+    return data.quotes[0];
+}
+
+async function buildTransaction(quote: any, params: any): Promise<any> {
+    const response = await fetch(`${SERVER_URL}/build`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quotes: quote, params }),
+    });
+
+    const result = await response.json();
+    if (!result.success) throw new Error(`Build failed: ${result.error}`);
+    return result;
+}
+
+async function executeTransaction(result: any): Promise<string | null> {
+    if (!wallet || process.env.EXECUTE !== 'true') {
+        return null;
+    }
+
     const txData = result.transactions[0];
-    
-    if (txData.chainCategory === 'evm' && txData.transaction) {
-        console.log("\n=== Signing and Sending Transaction ===");
-        
-        // Import ethers
-        const { ethers } = await import('ethers');
-        
-        // Create provider and wallet
-        const provider = new ethers.JsonRpcProvider(process.env.BASE_RPC_URL || 'https://mainnet.base.org');
-        const wallet = new ethers.Wallet(process.env.EVM_PRIVATE_KEY || '', provider);
-        console.log("Wallet connected:", wallet.address);
-        
-        // Prepare transaction
-        const tx = {
-            to: txData.transaction.to,
-            data: txData.transaction.data,
-            value: txData.transaction.value,
-            chainId: txData.transaction.chainId,
-        };
-        console.log("Transaction prepared");
-        
-        // Send transaction
-        const txResponse = await wallet.sendTransaction(tx);
-        console.log("Transaction sent! Hash:", txResponse.hash);
-        
-        // Wait for confirmation
-        const receipt = await txResponse.wait();
-        console.log("Transaction confirmed in block:", receipt?.blockNumber);
-        console.log("Status:", receipt?.status === 1 ? "Success" : "Failed");
+    if (txData.chainCategory !== 'evm' || !txData.transaction) {
+        return null;
+    }
+
+    const tx = {
+        to: txData.transaction.to,
+        data: txData.transaction.data,
+        value: txData.transaction.value,
+        chainId: txData.transaction.chainId,
+    };
+
+    const txResponse = await wallet.sendTransaction(tx);
+    console.log('📤 Tx sent:', txResponse.hash);
+
+    const receipt = await txResponse.wait();
+    console.log('✅ Confirmed in block:', receipt?.blockNumber);
+
+    return txResponse.hash;
+}
+
+// Swift: Base -> Solana
+async function testSwiftBaseToSolana() {
+    console.log('\n=== Swift: Base -> Solana ===');
+
+    const quote = await fetchQuote({
+        fromToken: TOKENS.usdc_base,
+        fromChain: 'base',
+        toToken: TOKENS.usdc_solana,
+        toChain: 'solana',
+        amountIn: 3,
+        swift: true,
+    });
+
+    const result = await buildTransaction(quote, {
+        swapperAddress: ADDRESSES.evm,
+        destinationAddress: ADDRESSES.solana,
+        signerChainId: CHAIN_IDS.base,
+    });
+
+    console.log('✅ Built:', result.transactions[0].quoteType);
+    console.log('To:', result.transactions[0].transaction.to);
+
+    await executeTransaction(result);
+    return result;
+}
+
+// MCTP: Base -> Sui
+async function testMctpBaseToSui() {
+    console.log('\n=== MCTP: Base -> Sui ===');
+
+    const quote = await fetchQuote({
+        fromToken: TOKENS.usdc_base,
+        fromChain: 'base',
+        toToken: TOKENS.usdc_sui,
+        toChain: 'sui',
+        amountIn: 3,
+        mctp: true,
+    });
+
+    const result = await buildTransaction(quote, {
+        swapperAddress: ADDRESSES.evm,
+        destinationAddress: ADDRESSES.sui,
+        signerChainId: CHAIN_IDS.base,
+    });
+
+    console.log('✅ Built:', result.transactions[0].quoteType);
+    console.log('To:', result.transactions[0].transaction.to);
+
+    await executeTransaction(result);
+    return result;
+}
+
+// Fast MCTP: Base -> Solana
+async function testFastMctpBaseToSolana() {
+    console.log('\n=== Fast MCTP: Base -> Solana ===');
+
+    const quote = await fetchQuote({
+        fromToken: TOKENS.usdc_base,
+        fromChain: 'base',
+        toToken: TOKENS.usdc_solana,
+        toChain: 'solana',
+        amountIn: 3,
+        fastMctp: true,
+    });
+
+    const result = await buildTransaction(quote, {
+        swapperAddress: ADDRESSES.evm,
+        destinationAddress: ADDRESSES.solana,
+        signerChainId: CHAIN_IDS.base,
+    });
+
+    console.log('✅ Built:', result.transactions[0].quoteType);
+    console.log('To:', result.transactions[0].transaction.to);
+
+    await executeTransaction(result);
+    return result;
+}
+
+// Monochain: Base (ETH -> USDC)
+async function testMonochainBase() {
+    console.log('\n=== Monochain: Base ===');
+
+    const quote = await fetchQuote({
+        fromToken: TOKENS.eth_base,
+        fromChain: 'base',
+        toToken: TOKENS.usdc_base,
+        toChain: 'base',
+        amountIn: 0.0003,
+        monoChain: true,
+    });
+
+    const result = await buildTransaction(quote, {
+        swapperAddress: ADDRESSES.evm,
+        destinationAddress: ADDRESSES.evm,
+        signerChainId: CHAIN_IDS.base,
+    });
+
+    console.log('✅ Built:', result.transactions[0].quoteType);
+    console.log('To:', result.transactions[0].transaction.to);
+
+    await executeTransaction(result);
+    return result;
+}
+
+// Swift with Permit: Base -> Solana
+async function testSwiftWithPermit() {
+    console.log('\n=== Swift with Permit: Base -> Solana ===');
+
+    const quote = await fetchQuote({
+        fromToken: TOKENS.usdc_base,
+        fromChain: 'base',
+        toToken: TOKENS.usdc_solana,
+        toChain: 'solana',
+        amountIn: 3,
+        swift: true,
+    });
+
+    // Create real permit signature
+    // Requires EVM_PRIVATE_KEY env var
+    const privateKey = process.env.EVM_PRIVATE_KEY;
+    if (!privateKey) {
+        console.log('⚠️ EVM_PRIVATE_KEY not set, skipping permit test');
+        return null;
+    }
+
+    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    // USDC permit domain
+    const domain = {
+        name: 'USD Coin',
+        version: '2',
+        chainId: CHAIN_IDS.base,
+        verifyingContract: TOKENS.usdc_base,
+    };
+
+    const types = {
+        Permit: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+            { name: 'value', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+        ],
+    };
+
+    // Get nonce from USDC contract
+    const usdcAbi = ['function nonces(address owner) view returns (uint256)'];
+    const usdcContract = new ethers.Contract(TOKENS.usdc_base, usdcAbi, provider);
+    const nonce = await usdcContract.nonces(wallet.address);
+
+    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const value = quote.effectiveAmountIn64;
+
+    const permitValue = {
+        owner: wallet.address,
+        spender: quote.swiftMayanContract,
+        value: value,
+        nonce: nonce,
+        deadline: deadline,
+    };
+
+    const signature = await wallet.signTypedData(domain, types, permitValue);
+    const sig = ethers.Signature.from(signature);
+
+    const permit = {
+        value: value,
+        deadline: deadline.toString(),
+        v: sig.v,
+        r: sig.r,
+        s: sig.s,
+    };
+
+    const result = await buildTransaction(quote, {
+        swapperAddress: wallet.address,
+        destinationAddress: ADDRESSES.solana,
+        signerChainId: CHAIN_IDS.base,
+        permit,
+    });
+
+    console.log('✅ Built with permit:', result.transactions[0].quoteType);
+    console.log('To:', result.transactions[0].transaction.to);
+
+    await executeTransaction(result);
+    return result;
+}
+
+async function main() {
+    console.log('╔══════════════════════════════════════╗');
+    console.log('║       EVM TRANSACTION TESTS          ║');
+    console.log('╚══════════════════════════════════════╝');
+
+    try {
+        await testSwiftBaseToSolana(); // tx-hash: 0x3a75f69788a7217190ea07a12443a8904bc976eef8b7fc0d33bb43d714afb8ca
+        await testMctpBaseToSui(); // tx-hash: 0x7480b9f6e6d47d76c26be65dd0d2e6d33ad47360fa1bee174216ebd85723f667
+        await testFastMctpBaseToSolana(); // tx-hash: 0xb06f71524a721becf34f3259498b5ce58c64d7a6913e2f414d1ad83119e73f54
+        await testMonochainBase(); // tx-hash: 0xbf8ebe9ca4be46389f8a7eb5406cb28bb3286596553ec392f1e0f48bd507b4ea
+        await testSwiftWithPermit(); // tx-hash: 0xa91323420ebc4df5d177daeb82c345e27e3d3c1715944a21b0df4f96836b76f3
+
+        console.log('\n✅ All EVM tests passed!');
+    } catch (error) {
+        console.error('\n❌ Error:', error);
+        process.exit(1);
     }
 }
-// tx-hash: 0x9d954afc168e08363257fc45560642cd7eae869119d765355aa39c5d613b36ac
+
+main();

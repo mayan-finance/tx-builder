@@ -1,174 +1,207 @@
+/**
+ * Sui Transaction Examples
+ * 
+ * Tests:
+ * 1. MCTP: Sui -> Solana (USDC)
+ * 2. MCTP: Sui -> Base (USDC)
+ */
+
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 
-const srcAddress = '0x10649cdcee564178674f4fe719e5a8f48d6cc779684e022345ec16aacaf7b040';
-const destAddress = '0xEab4Fb2De5a05Ba392eB2614bd2293592d455A4f';
+const SERVER_URL = 'https://tx-builder.mayan.finance';
+const SUI_RPC_URL = process.env.SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443';
 
-const signedQuote = `{
-    "withHub": false,
-    "hubRelayerFee64": "0",
-    "circleMaxFee64": "0",
-    "fastMctpMinFinality": 1,
-    "maxUserGasDrop": 0.0005625647447620204,
-    "sendTransactionCost": 0,
-    "rentCost": "1774800",
-    "gasless": false,
-    "slippageBps": 0,
-    "effectiveAmountIn": 5,
-    "effectiveAmountIn64": "5000000",
-    "expectedAmountOut": 4.996423,
-    "price": 0.9994403835231951,
-    "priceImpact": null,
-    "minAmountOut": 4.996422,
-    "minReceived": 4.996422,
-    "route": null,
-    "swapRelayerFee": 0,
-    "swapRelayerFee64": "0",
-    "solanaRelayerFee": 0,
-    "solanaRelayerFee64": "0",
-    "redeemRelayerFee": 0.003577,
-    "redeemRelayerFee64": "3577",
-    "refundRelayerFee": 0.003577,
-    "refundRelayerFee64": "3577",
-    "clientRelayerFeeSuccess": 0.003577196135,
-    "clientRelayerFeeRefund": 0.003577196135,
-    "cancelRelayerFee64": null,
-    "submitRelayerFee64": null,
-    "deadline64": "1766520269",
-    "fromToken": {
-        "name": "USDC",
-        "standard": "suicoin",
-        "symbol": "USDC",
-        "mint": "",
-        "verified": true,
-        "contract": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
-        "chainId": 1999,
-        "wChainId": 21,
-        "decimals": 6,
-        "logoURI": "https://assets.coingecko.com/coins/images/6319/small/usdc.png?1696506694",
-        "coingeckoId": "usd-coin",
-        "pythUsdPriceId": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        "realOriginContractAddress": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
-        "realOriginChainId": 21,
-        "verifiedAddress": "0x69b7a7c3c200439c1b5f3b19d7d495d5966d5f08de66c69276152f8db3992ec6",
-        "peggedAsset": "USD"
-    },
-    "fromChain": "sui",
-    "toToken": {
-        "name": "USDC",
-        "standard": "erc20",
-        "hasAuction": true,
-        "symbol": "USDC",
-        "mint": "EfqRM8ZGWhDTKJ7BHmFvNagKVu3AxQRDQs8WMMaoBCu6",
-        "verified": true,
-        "contract": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        "chainId": 8453,
-        "wChainId": 30,
-        "decimals": 6,
-        "logoURI": "https://assets.coingecko.com/coins/images/6319/small/usdc.png?1696506694",
-        "coingeckoId": "usd-coin",
-        "pythUsdPriceId": "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
-        "realOriginContractAddress": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-        "realOriginChainId": 30,
-        "supportsPermit": true,
-        "peggedAsset": "USD"
-    },
-    "toChain": "base",
-    "mintDecimals": null,
-    "gasDrop": 0,
-    "eta": 1,
-    "etaSeconds": 60,
-    "clientEta": "1 min",
-    "bridgeFee": 0,
-    "suggestedPriorityFee": 0,
-    "type": "MCTP",
-    "priceStat": {
-        "ratio": 1,
-        "status": "GOOD"
-    },
-    "referrerBps": 0,
-    "meta": {
-        "advertisedDescription": "Cheapest and Fastest",
-        "advertisedTitle": "Best",
-        "icon": "https://cdn.mayan.finance/fast_icon.png",
-        "switchText": "Switch to the best route",
-        "title": "Best"
-    },
-    "cheaperChain": "base",
-    "lockFeesOnSource": false,
-    "hasAuction": false,
-    "onlyBridging": true,
-    "mctpInputContract": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
-    "mctpVerifiedInputAddress": "0x69b7a7c3c200439c1b5f3b19d7d495d5966d5f08de66c69276152f8db3992ec6",
-    "mctpInputTreasury": "0x57d6725e7a8b49a7b2a612f6bd66ab5f39fc95332ca48be421c3229d514a6de7",
-    "mctpOutputContract": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    "toPrice": 0.9998440900000001,
-    "minMiddleAmount": 5,
-    "sourceSwapExpense": 0,
-    "expectedAmountOutBaseUnits": "4996423",
-    "minAmountOutBaseUnits": "4996422",
-    "minReceivedBaseUnits": "4996422",
-    "signature": "0x3334714ed048152884893063cd630afb8e7c1631ef5e873ab0e21ecaf563bee276a76d6da9535962e2c4b728690c0f991245c7d3b2d1c48d784064a645d6cf991b"
-}`;
+const suiClient = new SuiClient({ url: SUI_RPC_URL });
 
-console.log("Sending request to build transaction");
-const response = await fetch('http://localhost:3000/build', {
+let keypair: Ed25519Keypair | undefined;
+if (process.env.SUI_PRIVATE_KEY) {
+  try {
+    const { secretKey } = decodeSuiPrivateKey(process.env.SUI_PRIVATE_KEY);
+    keypair = Ed25519Keypair.fromSecretKey(secretKey);
+    console.log('Wallet loaded:', keypair.getPublicKey().toSuiAddress());
+  } catch (e) {
+    console.error('Failed to load keypair:', e);
+  }
+}
+
+const ADDRESSES = {
+  evm: '0xEab4Fb2De5a05Ba392eB2614bd2293592d455A4f',
+  solana: '6riUFsScbBHa6T14SfLC19AXAHgE8A5JuZwn2g7QZN73',
+  sui: '0x10649cdcee564178674f4fe719e5a8f48d6cc779684e022345ec16aacaf7b040',
+};
+
+const TOKENS = {
+  usdc_base: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+  usdc_solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  usdc_sui: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+  sui_native: '0x2::sui::SUI',
+  eth_base: '0x0000000000000000000000000000000000000000',
+};
+
+async function fetchQuote(params: {
+  fromToken: string;
+  fromChain: string;
+  toToken: string;
+  toChain: string;
+  amountIn: number;
+  swift?: boolean;
+  mctp?: boolean;
+  fastMctp?: boolean;
+}): Promise<any> {
+  const queryParams = new URLSearchParams({
+    amountIn: params.amountIn.toString(),
+    fromToken: params.fromToken,
+    fromChain: params.fromChain,
+    toToken: params.toToken,
+    toChain: params.toChain,
+    slippageBps: 'auto',
+    swift: (params.swift ?? false).toString(),
+    mctp: (params.mctp ?? false).toString(),
+    fastMctp: (params.fastMctp ?? false).toString(),
+    monoChain: 'false',
+    gasless: 'false',
+    wormhole: 'false',
+    shuttle: 'false',
+    onlyDirect: 'false',
+    fullList: 'false',
+    solanaProgram: 'FC4eXxkyrMPTjiYUpp4EAnkmwMbQyZ6NDCh1kfLn6vsf',
+    forwarderAddress: '0x337685fdaB40D39bd02028545a4FfA7D287cC3E2',
+    referrer: '7HN4qCvG2dP5oagZRxj2dTGPhksgRnKCaLPjtjKEr1Ho',
+    sdkVersion: '12_2_3',
+  });
+
+  const url = `https://price-api.mayan.finance/v3/quote?${queryParams}`;
+  console.log(`Fetching: ${params.fromChain} -> ${params.toChain}`);
+  
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Quote fetch failed: ${response.status}`);
+  
+  const data = await response.json();
+  if (!data.quotes?.length) throw new Error('No quotes available');
+  
+  console.log(`Got ${data.quotes[0].type} quote`);
+  return data.quotes[0];
+}
+
+async function buildTransaction(quote: any, params: any): Promise<any> {
+  const response = await fetch(`${SERVER_URL}/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        quotes: JSON.parse(signedQuote),
-        params: {
-            swapperAddress: srcAddress,
-            destinationAddress: destAddress,
-        }
-    })
-});
-console.log("Response received");
-const result = await response.json();
-console.log("Status:", response.status);
-console.log("Result:", JSON.stringify(result, null, 2));
-
-// Sign and send the transaction
-if (result.success && result.transactions.length > 0) {
-    const txData = result.transactions[0];
-    
-    if (txData.chainCategory === 'sui' && txData.transaction) {
-        console.log("\n=== Signing and Sending Transaction ===");
-        
-        const suiClient = new SuiClient({ 
-            url: process.env.SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443' 
-        });
-        
-        // Deserialize the transaction from base64
-        const transactionBytes = Buffer.from(txData.transaction, 'base64');
-        const transaction = Transaction.from(transactionBytes);
-        console.log("Transaction deserialized successfully");
-        
-        const privateKey = process.env.SUI_PRIVATE_KEY || '';
-        const { secretKey } = decodeSuiPrivateKey(privateKey);
-        const keypair = Ed25519Keypair.fromSecretKey(secretKey);
-        console.log("Keypair loaded, address:", keypair.getPublicKey().toSuiAddress());
-        
-        // Sign and execute the transaction
-        const txResponse = await suiClient.signAndExecuteTransaction({
-            signer: keypair,
-            transaction,
-            options: {
-                showEffects: true,
-                showEvents: true,
-            }
-        });
-        console.log("Transaction sent! Digest:", txResponse.digest);
-        
-        // Wait for confirmation
-        const confirmation = await suiClient.waitForTransaction({
-            digest: txResponse.digest,
-            options: { showEffects: true }
-        });
-        console.log("Transaction confirmed!");
-        console.log("Status:", confirmation.effects?.status?.status);
-    }
+    body: JSON.stringify({ quotes: quote, params }),
+  });
+  
+  const result = await response.json();
+  if (!result.success) throw new Error(`Build failed: ${result.error}`);
+  return result;
 }
-// tx-hash: 3waTdddEBqaoaSuvFiHCKe2yymrgw4AcqzfxuB9iKEym
+
+async function executeTransaction(result: any): Promise<string | null> {
+  if (!keypair || process.env.EXECUTE !== 'true') {
+    return null;
+  }
+
+  const txData = result.transactions[0];
+  if (txData.chainCategory !== 'sui' || !txData.transaction) {
+    return null;
+  }
+
+  // Decode base64 transaction
+  const txBytes = Uint8Array.from(Buffer.from(txData.transaction, 'base64'));
+  const transaction = Transaction.from(txBytes);
+
+  // Sign and execute transaction
+  const txResult = await suiClient.signAndExecuteTransaction({
+    signer: keypair,
+    transaction,
+    options: {
+      showEffects: true,
+      showEvents: true,
+    },
+  });
+
+  console.log('📤 Tx sent:', txResult.digest);
+
+  // Wait for confirmation
+  const confirmation = await suiClient.waitForTransaction({
+    digest: txResult.digest,
+    options: { showEffects: true },
+  });
+
+  if (confirmation.effects?.status?.status !== 'success') {
+    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.effects?.status)}`);
+  }
+  console.log('✅ Confirmed');
+
+  return txResult.digest;
+}
+
+// MCTP: Sui -> Solana
+async function testMctpSuiToSolana() {
+  console.log('\n=== MCTP: Sui -> Solana ===');
+  
+  const quote = await fetchQuote({
+    fromToken: TOKENS.usdc_sui,
+    fromChain: 'sui',
+    toToken: TOKENS.usdc_solana,
+    toChain: 'solana',
+    amountIn: 3,
+    mctp: true,
+  });
+  
+  const result = await buildTransaction(quote, {
+    swapperAddress: ADDRESSES.sui,
+    destinationAddress: ADDRESSES.solana,
+  });
+  
+  console.log('✅ Built:', result.transactions[0].quoteType);
+  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+
+  await executeTransaction(result);
+  return result;
+}
+
+// MCTP: Sui -> Base
+async function testMctpSuiToBase() {
+  console.log('\n=== MCTP: Sui -> Base ===');
+  
+  const quote = await fetchQuote({
+    fromToken: TOKENS.usdc_sui,
+    fromChain: 'sui',
+    toToken: TOKENS.usdc_base,
+    toChain: 'base',
+    amountIn: 3,
+    mctp: true,
+  });
+  
+  const result = await buildTransaction(quote, {
+    swapperAddress: ADDRESSES.sui,
+    destinationAddress: ADDRESSES.evm,
+  });
+  
+  console.log('✅ Built:', result.transactions[0].quoteType);
+  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+
+  await executeTransaction(result);
+  return result;
+}
+
+async function main() {
+  console.log('╔══════════════════════════════════════╗');
+  console.log('║        SUI TRANSACTION TESTS         ║');
+  console.log('╚══════════════════════════════════════╝');
+  
+  try {
+    await testMctpSuiToSolana(); // tx-hash: 22GUwk4X5KCwNateg2UU4Ttaf1CxdHDcM2J19dj5ZJ64
+    await testMctpSuiToBase(); // tx-hash: GoKpuScnVEB1mnEdbuhwpzsFWBrKo5y1HUFYSujQ1aGH
+    
+    console.log('\n✅ All Sui tests passed!');
+  } catch (error) {
+    console.error('\n❌ Error:', error);
+    process.exit(1);
+  }
+}
+
+main();
