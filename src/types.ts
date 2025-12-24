@@ -44,6 +44,10 @@ export interface BuildEvmTxParams extends BuildTxBaseParams {
 export interface BuildSvmTxParams extends BuildTxBaseParams {
   swapperAddress: string;
   usdcPermitSignature?: string;
+  allowSwapperOffCurve?: boolean;
+  forceSkipCctpInstructions?: boolean;
+  separateSwapTx?: boolean;
+  skipProxyMayanInstructions?: boolean;
 }
 
 export interface BuildSuiTxParams extends BuildTxBaseParams {
