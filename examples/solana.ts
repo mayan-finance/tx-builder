@@ -89,7 +89,7 @@ async function buildTransaction(quote: any, params: any): Promise<any> {
   const response = await fetch(`${SERVER_URL}/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quotes: quote, params }),
+    body: JSON.stringify({ quote, params }),
   });
   
   const result = await response.json();
@@ -102,7 +102,7 @@ async function executeTransaction(result: any): Promise<string | null> {
     return null;
   }
 
-  const txData = result.transactions[0];
+  const txData = result.transaction;
   if (txData.chainCategory !== 'svm' || !txData.transaction) {
     return null;
   }
@@ -157,8 +157,8 @@ async function testSwiftSolanaToBase() {
     destinationAddress: ADDRESSES.evm,
   });
   
-  console.log('✅ Built:', result.transactions[0].quoteType);
-  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+  console.log('✅ Built:', result.transaction.quoteType);
+  console.log('Tx length:', result.transaction.transaction.length, 'bytes (base64)');
 
   await executeTransaction(result);
   return result;
@@ -182,8 +182,8 @@ async function testMctpSolanaToBase() {
     destinationAddress: ADDRESSES.evm,
   });
   
-  console.log('✅ Built:', result.transactions[0].quoteType);
-  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+  console.log('✅ Built:', result.transaction.quoteType);
+  console.log('Tx length:', result.transaction.transaction.length, 'bytes (base64)');
 
   await executeTransaction(result);
   return result;
@@ -207,8 +207,8 @@ async function testFastMctpSolanaToBase() {
     destinationAddress: ADDRESSES.evm,
   });
   
-  console.log('✅ Built:', result.transactions[0].quoteType);
-  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+  console.log('✅ Built:', result.transaction.quoteType);
+  console.log('Tx length:', result.transaction.transaction.length, 'bytes (base64)');
 
   await executeTransaction(result);
   return result;
@@ -232,8 +232,8 @@ async function testMonochainSolana() {
     destinationAddress: ADDRESSES.solana,
   });
   
-  console.log('✅ Built:', result.transactions[0].quoteType);
-  console.log('Tx length:', result.transactions[0].transaction.length, 'bytes (base64)');
+  console.log('✅ Built:', result.transaction.quoteType);
+  console.log('Tx length:', result.transaction.transaction.length, 'bytes (base64)');
 
   await executeTransaction(result);
   return result;

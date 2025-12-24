@@ -53,7 +53,7 @@ export interface BuildSuiTxParams extends BuildTxBaseParams {
 
 // API Request body
 export interface BuildTransactionRequest {
-  quotes: SignedQuote | SignedQuote[];
+  quote: SignedQuote;
   params: BuildEvmTxParams | BuildSvmTxParams | BuildSuiTxParams;
 }
 
@@ -132,7 +132,7 @@ export type TransactionResult = EvmTransactionResult | SvmTransactionResult | Su
 
 export interface BuildTransactionResponse {
   success: true;
-  transactions: TransactionResult[];
+  transaction: TransactionResult;
 }
 
 export interface ErrorResponse {

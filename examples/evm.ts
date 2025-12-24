@@ -86,7 +86,7 @@ async function buildTransaction(quote: any, params: any): Promise<any> {
     const response = await fetch(`${SERVER_URL}/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quotes: quote, params }),
+        body: JSON.stringify({ quote, params }),
     });
 
     const result = await response.json();
@@ -99,7 +99,7 @@ async function executeTransaction(result: any): Promise<string | null> {
         return null;
     }
 
-    const txData = result.transactions[0];
+    const txData = result.transaction;
     if (txData.chainCategory !== 'evm' || !txData.transaction) {
         return null;
     }
@@ -139,8 +139,8 @@ async function testSwiftBaseToSolana() {
         signerChainId: CHAIN_IDS.base,
     });
 
-    console.log('✅ Built:', result.transactions[0].quoteType);
-    console.log('To:', result.transactions[0].transaction.to);
+    console.log('✅ Built:', result.transaction.quoteType);
+    console.log('To:', result.transaction.transaction.to);
 
     await executeTransaction(result);
     return result;
@@ -165,8 +165,8 @@ async function testMctpBaseToSui() {
         signerChainId: CHAIN_IDS.base,
     });
 
-    console.log('✅ Built:', result.transactions[0].quoteType);
-    console.log('To:', result.transactions[0].transaction.to);
+    console.log('✅ Built:', result.transaction.quoteType);
+    console.log('To:', result.transaction.transaction.to);
 
     await executeTransaction(result);
     return result;
@@ -191,8 +191,8 @@ async function testFastMctpBaseToSolana() {
         signerChainId: CHAIN_IDS.base,
     });
 
-    console.log('✅ Built:', result.transactions[0].quoteType);
-    console.log('To:', result.transactions[0].transaction.to);
+    console.log('✅ Built:', result.transaction.quoteType);
+    console.log('To:', result.transaction.transaction.to);
 
     await executeTransaction(result);
     return result;
@@ -217,8 +217,8 @@ async function testMonochainBase() {
         signerChainId: CHAIN_IDS.base,
     });
 
-    console.log('✅ Built:', result.transactions[0].quoteType);
-    console.log('To:', result.transactions[0].transaction.to);
+    console.log('✅ Built:', result.transaction.quoteType);
+    console.log('To:', result.transaction.transaction.to);
 
     await executeTransaction(result);
     return result;
@@ -300,8 +300,8 @@ async function testSwiftWithPermit() {
         permit,
     });
 
-    console.log('✅ Built with permit:', result.transactions[0].quoteType);
-    console.log('To:', result.transactions[0].transaction.to);
+    console.log('✅ Built with permit:', result.transaction.quoteType);
+    console.log('To:', result.transaction.transaction.to);
 
     await executeTransaction(result);
     return result;
