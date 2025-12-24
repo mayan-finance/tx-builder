@@ -171,5 +171,59 @@ export interface ServerConfig {
   solanaRpcUrl: string;
   fogoRpcUrl: string;
   suiRpcUrl: string;
+  // EVM RPC URLs by chain ID
+  evmRpcUrls: Record<number, string>;
 }
+
+// Permit Types
+
+// General ERC20 permit request (for token allowance to forwarder)
+export interface PermitParamsRequest {
+  quote: SignedQuote;
+  walletAddress: string;
+  deadline?: string; // Unix timestamp, defaults to 1 hour from now
+}
+
+// HyperCore-specific permit request (for USDC deposit on Arbitrum)
+export interface HyperCorePermitParamsRequest {
+  quote: SignedQuote;
+  userArbitrumAddress: string;
+}
+
+export interface PermitTypedDataDomain {
+  name: string;
+  version: string;
+  chainId: number;
+  verifyingContract: string;
+}
+
+export interface PermitTypedDataValue {
+  owner: string;
+  spender: string;
+  value: string;
+  nonce: string;
+  deadline: string;
+}
+
+export const PermitTypes = {
+  Permit: [
+    { name: 'owner', type: 'address' },
+    { name: 'spender', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const;
+
+export interface PermitParamsResponse {
+  success: true;
+  permitParams: {
+    domain: PermitTypedDataDomain;
+    types: typeof PermitTypes;
+    value: PermitTypedDataValue;
+  };
+}
+
+// HyperCore uses the same response format
+export type HyperCorePermitParamsResponse = PermitParamsResponse;
 

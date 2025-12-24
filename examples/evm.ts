@@ -1,12 +1,12 @@
 /**
  * EVM Transaction Examples
- * 
+ *
  * Tests:
  * 1. Swift: Base -> Solana (USDC)
  * 2. MCTP: Base -> Sui (USDC)
  * 3. Fast MCTP: Base -> Solana (USDC)
  * 4. Monochain: Base (ETH -> USDC)
- * 5. Swift with Permit: Base -> Solana (USDC)
+ * 5. Swift with Permit (using /permit-params endpoint): Base -> Solana (USDC)
  */
 
 import { ethers } from 'ethers';
@@ -224,6 +224,19 @@ async function testMonochainBase() {
     return result;
 }
 
+// Fetch permit params from the server
+async function fetchPermitParams(quote: any, walletAddress: string): Promise<any> {
+    const response = await fetch(`${SERVER_URL}/permit-params`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote, walletAddress }),
+    });
+
+    const result = await response.json();
+    if (!result.success) throw new Error(`Permit params failed: ${result.error}`);
+    return result.permitParams;
+}
+
 // Swift with Permit: Base -> Solana
 async function testSwiftWithPermit() {
     console.log('\n=== Swift with Permit: Base -> Solana ===');
@@ -237,7 +250,6 @@ async function testSwiftWithPermit() {
         swift: true,
     });
 
-    // Create real permit signature
     // Requires EVM_PRIVATE_KEY env var
     const privateKey = process.env.EVM_PRIVATE_KEY;
     if (!privateKey) {
@@ -248,46 +260,21 @@ async function testSwiftWithPermit() {
     const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
     const wallet = new ethers.Wallet(privateKey, provider);
 
-    // USDC permit domain
-    const domain = {
-        name: 'USD Coin',
-        version: '2',
-        chainId: CHAIN_IDS.base,
-        verifyingContract: TOKENS.usdc_base,
-    };
+    // Get permit params from the server (domain, types, value with nonce)
+    const permitParams = await fetchPermitParams(quote, wallet.address);
+    console.log('Permit params received:', permitParams.domain.name, 'v' + permitParams.domain.version);
 
-    const types = {
-        Permit: [
-            { name: 'owner', type: 'address' },
-            { name: 'spender', type: 'address' },
-            { name: 'value', type: 'uint256' },
-            { name: 'nonce', type: 'uint256' },
-            { name: 'deadline', type: 'uint256' },
-        ],
-    };
-
-    // Get nonce from USDC contract
-    const usdcAbi = ['function nonces(address owner) view returns (uint256)'];
-    const usdcContract = new ethers.Contract(TOKENS.usdc_base, usdcAbi, provider);
-    const nonce = await usdcContract.nonces(wallet.address);
-
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
-    const value = quote.effectiveAmountIn64;
-
-    const permitValue = {
-        owner: wallet.address,
-        spender: quote.swiftMayanContract,
-        value: value,
-        nonce: nonce,
-        deadline: deadline,
-    };
-
-    const signature = await wallet.signTypedData(domain, types, permitValue);
+    // Sign the typed data
+    const signature = await wallet.signTypedData(
+        permitParams.domain,
+        permitParams.types,
+        permitParams.value
+    );
     const sig = ethers.Signature.from(signature);
 
     const permit = {
-        value: value,
-        deadline: deadline.toString(),
+        value: permitParams.value.value,
+        deadline: permitParams.value.deadline,
         v: sig.v,
         r: sig.r,
         s: sig.s,
