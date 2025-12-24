@@ -2,8 +2,8 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { Connection } from '@solana/web3.js';
 import { SuiClient } from '@mysten/sui/client';
 import type { Quote } from '@mayanfinance/swap-sdk';
-import { validateQuotes } from './utils/signature';
-import { buildTransactions, type BuilderConnections } from './builders';
+import { verifyQuoteSignature } from './utils/signature';
+import { buildTransaction, type BuilderConnections } from './builders';
 import type {
   SignedQuote,
   BuildTransactionRequest,
@@ -13,7 +13,6 @@ import type {
   BuildEvmTxParams,
   BuildSvmTxParams,
   BuildSuiTxParams,
-  ChainCategory,
 } from './types';
 import { getChainCategory } from './types';
 
@@ -79,21 +78,19 @@ export function createServer(config: ServerConfig) {
         });
       }
 
-      // Normalize quotes to array
-      const quotes: SignedQuote[] = Array.isArray(body.quotes) ? body.quotes : [body.quotes];
+      const quote = body.quote;
 
-      // Verify all quote signatures
-      const { valid, invalidIndexes } = validateQuotes(quotes, config.expectedSignerAddress);
-      if (!valid) {
+      // Verify quote signature
+      if (!verifyQuoteSignature(quote, config.expectedSignerAddress)) {
         return res.status(401).json({
           success: false,
-          error: `Invalid signature for quote(s) at index: ${invalidIndexes.join(', ')}`,
+          error: 'Invalid signature for quote',
           code: ERROR_CODES.INVALID_SIGNATURE,
         });
       }
 
       // Validate that params match the chain category
-      const paramsError = validateParamsForChain(quotes, body.params);
+      const paramsError = validateParamsForChain(quote, body.params);
       if (paramsError) {
         return res.status(400).json({
           success: false,
@@ -102,16 +99,16 @@ export function createServer(config: ServerConfig) {
         });
       }
 
-      // Build transactions
-      const transactions = await buildTransactions(
-        quotes as Quote[],
+      // Build transaction
+      const transaction = await buildTransaction(
+        quote as Quote,
         body.params,
         connections
       );
 
       return res.json({
         success: true,
-        transactions: serializeBigInts(transactions) as typeof transactions,
+        transaction: serializeBigInts(transaction) as typeof transaction,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -138,8 +135,8 @@ export function createServer(config: ServerConfig) {
 }
 
 function validateRequest(body: BuildTransactionRequest): string | null {
-  if (!body.quotes) {
-    return 'Missing required field: quotes';
+  if (!body.quote) {
+    return 'Missing required field: quote';
   }
 
   if (!body.params) {
@@ -150,39 +147,26 @@ function validateRequest(body: BuildTransactionRequest): string | null {
     return 'Missing required field: params.destinationAddress';
   }
 
-  const quotes = Array.isArray(body.quotes) ? body.quotes : [body.quotes];
-  
-  if (quotes.length === 0) {
-    return 'quotes array cannot be empty';
-  }
+  const quote = body.quote;
 
-  for (let i = 0; i < quotes.length; i++) {
-    const quote = quotes[i];
-    if (!quote.signature) {
-      return `Quote at index ${i} is missing signature`;
-    }
-    if (!quote.fromChain) {
-      return `Quote at index ${i} is missing fromChain`;
-    }
-    if (!quote.type) {
-      return `Quote at index ${i} is missing type`;
-    }
+  if (!quote.signature) {
+    return 'Quote is missing signature';
+  }
+  if (!quote.fromChain) {
+    return 'Quote is missing fromChain';
+  }
+  if (!quote.type) {
+    return 'Quote is missing type';
   }
 
   return null;
 }
 
 function validateParamsForChain(
-  quotes: SignedQuote[],
+  quote: SignedQuote,
   params: BuildEvmTxParams | BuildSvmTxParams | BuildSuiTxParams
 ): string | null {
-  // All quotes should be from same chain category
-  const categories = new Set(quotes.map(q => getChainCategory(q.fromChain)));
-  if (categories.size > 1) {
-    return 'All quotes must be from the same chain category (evm, svm, or sui)';
-  }
-
-  const chainCategory = getChainCategory(quotes[0].fromChain);
+  const chainCategory = getChainCategory(quote.fromChain);
 
   // EVM requires signerChainId
   if (chainCategory === 'evm') {
