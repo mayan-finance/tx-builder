@@ -44,6 +44,10 @@ export interface BuildEvmTxParams extends BuildTxBaseParams {
 export interface BuildSvmTxParams extends BuildTxBaseParams {
   swapperAddress: string;
   usdcPermitSignature?: string;
+  allowSwapperOffCurve?: boolean;
+  forceSkipCctpInstructions?: boolean;
+  separateSwapTx?: boolean;
+  skipProxyMayanInstructions?: boolean;
 }
 
 // SUI coin input - either by object ID or as a result from prior move call

@@ -29,6 +29,10 @@ export async function buildSvmTransaction(
     referrerAddresses,
     customPayload,
     usdcPermitSignature,
+    allowSwapperOffCurve,
+    forceSkipCctpInstructions,
+    separateSwapTx,
+    skipProxyMayanInstructions,
   } = params;
 
   const payload = customPayload ? hexToBuffer(customPayload) : undefined;
@@ -42,6 +46,10 @@ export async function buildSvmTransaction(
     {
       customPayload: payload,
       usdcPermitSignature,
+      allowSwapperOffCurve,
+      forceSkipCctpInstructions,
+      separateSwapTx,
+      skipProxyMayanInstructions,
     }
   );
 
