@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { Connection } from '@solana/web3.js';
 import { SuiClient } from '@mysten/sui/client';
 import { JsonRpcProvider } from 'ethers';
-import type { Quote } from '@mayanfinance/swap-sdk';
+import { fetchQuote, type Quote, type QuoteParams, type QuoteOptions } from '@mayanfinance/swap-sdk';
 import { verifyQuoteSignature } from './utils/signature';
 import { buildTransaction, type BuilderConnections } from './builders';
 import { getPermitParams, getHyperCorePermitParams } from './utils/hypercore';
@@ -19,6 +19,8 @@ import type {
   PermitParamsResponse,
   HyperCorePermitParamsRequest,
   HyperCorePermitParamsResponse,
+  FetchQuoteRequest,
+  FetchQuoteResponse,
 } from './types';
 import { getChainCategory } from './types';
 
@@ -76,6 +78,73 @@ export function createServer(config: ServerConfig) {
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Fetch quote endpoint
+  app.post('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
+    try {
+      const body = req.body as FetchQuoteRequest;
+
+      // Validate required fields
+      const validationError = validateQuoteRequest(body);
+      if (validationError) {
+        return res.status(400).json({
+          success: false,
+          error: validationError,
+          code: ERROR_CODES.INVALID_REQUEST,
+        });
+      }
+
+      // Build QuoteParams from flat request
+      const quoteParams: QuoteParams = {
+        fromToken: body.fromToken,
+        fromChain: body.fromChain,
+        toToken: body.toToken,
+        toChain: body.toChain,
+        slippageBps: body.slippageBps,
+      };
+
+      // Add amount (prefer amountIn64)
+      if (body.amountIn64) {
+        quoteParams.amountIn64 = body.amountIn64;
+      } else if (body.amount !== undefined) {
+        quoteParams.amount = body.amount;
+      }
+
+      // Add optional params
+      if (body.gasDrop !== undefined) quoteParams.gasDrop = body.gasDrop;
+      if (body.referrer) quoteParams.referrer = body.referrer;
+      if (body.referrerBps !== undefined) quoteParams.referrerBps = body.referrerBps;
+
+      // Build QuoteOptions from flat request
+      const quoteOptions: QuoteOptions = {};
+      if (body.wormhole !== undefined) quoteOptions.wormhole = body.wormhole;
+      if (body.swift !== undefined) quoteOptions.swift = body.swift;
+      if (body.mctp !== undefined) quoteOptions.mctp = body.mctp;
+      if (body.shuttle !== undefined) quoteOptions.shuttle = body.shuttle;
+      if (body.fastMctp !== undefined) quoteOptions.fastMctp = body.fastMctp;
+      if (body.gasless !== undefined) quoteOptions.gasless = body.gasless;
+      if (body.onlyDirect !== undefined) quoteOptions.onlyDirect = body.onlyDirect;
+      if (body.fullList !== undefined) quoteOptions.fullList = body.fullList;
+      if (body.payload) quoteOptions.payload = body.payload;
+      if (body.monoChain !== undefined) quoteOptions.monoChain = body.monoChain;
+
+      // Fetch quotes
+      const quotes = await fetchQuote(quoteParams, quoteOptions);
+
+      return res.json({
+        success: true,
+        quotes: serializeBigInts(quotes) as Quote[],
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Fetch quote error:', error);
+      return res.status(500).json({
+        success: false,
+        error: message,
+        code: ERROR_CODES.INTERNAL_ERROR,
+      });
+    }
   });
 
   // Build transaction endpoint
@@ -343,12 +412,39 @@ function validateParamsForChain(
   return null;
 }
 
+function validateQuoteRequest(body: FetchQuoteRequest): string | null {
+  const missingFields: string[] = [];
+
+  if (!body.fromToken) missingFields.push('fromToken');
+  if (!body.fromChain) missingFields.push('fromChain');
+  if (!body.toToken) missingFields.push('toToken');
+  if (!body.toChain) missingFields.push('toChain');
+  if (body.slippageBps === undefined) missingFields.push('slippageBps');
+
+  if (missingFields.length > 0) {
+    return `Missing required fields: ${missingFields.join(', ')}`;
+  }
+
+  // Validate amount - at least one is required
+  if (body.amount === undefined && !body.amountIn64) {
+    return 'Missing required field: amount or amountIn64 (amountIn64 is recommended for precision)';
+  }
+
+  // Validate slippageBps
+  if (body.slippageBps !== 'auto' && typeof body.slippageBps !== 'number') {
+    return 'slippageBps must be "auto" or a number (basis points, e.g., 50 = 0.5%)';
+  }
+
+  return null;
+}
+
 export function startServer(config: ServerConfig) {
   const app = createServer(config);
   
   app.listen(config.port, () => {
     console.log(`🚀 Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
+    console.log(`   Quote endpoint: POST http://localhost:${config.port}/quote`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
   });
 
