@@ -1,4 +1,4 @@
-import type { Quote, Erc20Permit, ReferrerAddresses, ChainName, TokenStandard } from '@mayanfinance/swap-sdk';
+import type { Quote, Erc20Permit, ReferrerAddresses, ChainName, TokenStandard, QuoteOptions, QuoteParams } from '@mayanfinance/swap-sdk';
 
 // Chain categories for routing
 export type ChainCategory = 'evm' | 'svm' | 'sui';
@@ -230,4 +230,44 @@ export interface PermitParamsResponse {
 
 // HyperCore uses the same response format
 export type HyperCorePermitParamsResponse = PermitParamsResponse;
+
+// Fetch Quote Types
+
+// Flat request combining QuoteParams and QuoteOptions
+export interface FetchQuoteRequest {
+  // Required params
+  fromToken: string;
+  fromChain: ChainName;
+  toToken: string;
+  toChain: ChainName;
+  slippageBps: 'auto' | number;
+
+  // Amount - one of these is required (amountIn64 preferred)
+  amount?: number;
+  amountIn64?: string;
+
+  // Optional params
+  gasDrop?: number;
+  referrer?: string;
+  referrerBps?: number;
+
+  // Optional quote options
+  wormhole?: boolean;
+  swift?: boolean;
+  mctp?: boolean;
+  shuttle?: boolean;
+  fastMctp?: boolean;
+  gasless?: boolean;
+  onlyDirect?: boolean;
+  fullList?: boolean;
+  payload?: string;
+  monoChain?: boolean;
+}
+
+export interface FetchQuoteResponse {
+  success: true;
+  quotes: Quote[];
+}
+
+export type { Quote, QuoteParams, QuoteOptions };
 
