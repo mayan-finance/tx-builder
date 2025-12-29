@@ -269,5 +269,5 @@ export interface FetchQuoteResponse {
   quotes: Quote[];
 }
 
-export { Quote, QuoteParams, QuoteOptions };
+export type { Quote, QuoteParams, QuoteOptions };
 
