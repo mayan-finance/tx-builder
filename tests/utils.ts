@@ -341,6 +341,38 @@ export async function signPermit(permitParams: any, chain: string): Promise<any>
   };
 }
 
+// Mayan forwarder address for ERC20 approvals
+export const FORWARDER_ADDRESS = '0x337685fdaB40D39bd02028545a4FfA7D287cC3E2';
+
+// ERC20 ABI for approve
+const ERC20_APPROVE_ABI = [
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+];
+
+// Approve forwarder to spend ERC20 tokens
+export async function approveForwarder(tokenAddress: string, chain: string, amount?: bigint): Promise<string | null> {
+  const wallet = getEvmWallet(chain);
+  if (!wallet || process.env.EXECUTE !== 'true') return null;
+
+  const contract = new ethers.Contract(tokenAddress, ERC20_APPROVE_ABI, wallet);
+
+  // Check current allowance
+  const currentAllowance = await contract.allowance(wallet.address, FORWARDER_ADDRESS);
+  const requiredAmount = amount || ethers.MaxUint256;
+
+  // Skip if already approved
+  if (currentAllowance >= requiredAmount) {
+    return null;
+  }
+
+  // Approve max uint256 for convenience
+  const tx = await contract.approve(FORWARDER_ADDRESS, ethers.MaxUint256);
+  const receipt = await tx.wait();
+
+  return receipt.hash;
+}
+
 // Wait for swap to be indexed on Mayan Explorer
 export async function waitForSwapIndexed(sourceTxHash: string, timeoutMs: number = 120000): Promise<any> {
   const startTime = Date.now();

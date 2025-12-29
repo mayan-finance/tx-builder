@@ -2,10 +2,11 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { Connection } from '@solana/web3.js';
 import { SuiClient } from '@mysten/sui/client';
 import { JsonRpcProvider } from 'ethers';
-import { fetchQuote, type Quote, type QuoteParams, type QuoteOptions } from '@mayanfinance/swap-sdk';
+import {fetchQuote, type Quote, type QuoteParams, type QuoteOptions, addresses} from '@mayanfinance/swap-sdk';
 import { verifyQuoteSignature } from './utils/signature';
 import { buildTransaction, type BuilderConnections } from './builders';
 import { getPermitParams, getHyperCorePermitParams } from './utils/hypercore';
+import { apiKeyMiddleware, getMetrics, startRateLimitCleanup, getApiKeyConfig } from './middleware/apiKey';
 import type {
   SignedQuote,
   BuildTransactionRequest,
@@ -59,6 +60,11 @@ export function createServer(config: ServerConfig) {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
+  // Apply API key middleware for authentication and rate limiting
+  // Note: /quote endpoint is exempt from rate limiting, but still tracked in metrics
+  const apiKeyConfig = getApiKeyConfig();
+  app.use(apiKeyMiddleware(apiKeyConfig));
+
   // Initialize connections
   const connections: BuilderConnections = {
     solana: new Connection(config.solanaRpcUrl, 'confirmed'),
@@ -78,6 +84,25 @@ export function createServer(config: ServerConfig) {
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Get forwarder address for ERC20 approvals
+  app.get('/forwarder-address', (_req: Request, res: Response) => {
+    res.json({
+      success: true,
+      forwarderAddress: addresses.MAYAN_FORWARDER_CONTRACT,
+      description: 'Mayan Forwarder contract address. Approve this address to spend your ERC20 tokens before swapping.',
+    });
+  });
+
+  // Prometheus metrics endpoint
+  app.get('/metrics', async (_req: Request, res: Response) => {
+    try {
+      res.set('Content-Type', 'text/plain');
+      res.send(await getMetrics());
+    } catch (error) {
+      res.status(500).send('Error collecting metrics');
+    }
   });
 
   // Fetch quote endpoint
@@ -440,12 +465,26 @@ function validateQuoteRequest(body: FetchQuoteRequest): string | null {
 
 export function startServer(config: ServerConfig) {
   const app = createServer(config);
-  
-  app.listen(config.port, () => {
-    console.log(`🚀 Mayan TX Builder API running on port ${config.port}`);
+
+  // Start rate limit cleanup interval
+  const cleanupInterval = startRateLimitCleanup();
+
+  const server = app.listen(config.port, () => {
+    const apiKeyConfig = getApiKeyConfig();
+    console.log(`Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
+    console.log(`   Metrics: http://localhost:${config.port}/metrics`);
     console.log(`   Quote endpoint: POST http://localhost:${config.port}/quote`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
+    console.log(`   API Key auth: ${apiKeyConfig.enabled ? 'enabled' : 'disabled'}`);
+    if (apiKeyConfig.enabled) {
+      console.log(`   Rate limit: ${apiKeyConfig.rateLimit.maxRequests} requests per ${apiKeyConfig.rateLimit.windowMs / 1000}s`);
+    }
+  });
+
+  // Cleanup on server close
+  server.on('close', () => {
+    clearInterval(cleanupInterval);
   });
 
   return app;

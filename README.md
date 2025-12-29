@@ -16,6 +16,8 @@ A RESTful API service that generates unsigned transactions for cross-chain swaps
 - **Permit Support**: EIP-2612 permit signatures for gasless token approvals
 - **Monochain Swaps**: Single-chain token swaps with DEX aggregation
 - **Quote Signature Verification**: Cryptographic verification of all quotes
+- **API Key Authentication**: Optional API key requirement with rate limiting
+- **Prometheus Metrics**: Built-in metrics endpoint for monitoring
 
 ## Supported Chains
 
@@ -65,6 +67,10 @@ cp .env.example .env
 | `AVALANCHE_RPC_URL` | Avalanche RPC endpoint | Public RPC |
 | `BSC_RPC_URL` | BSC RPC endpoint | Public RPC |
 | `OPTIMISM_RPC_URL` | Optimism RPC endpoint | Public RPC |
+| `ENABLE_API_KEY` | Enable API key authentication | `false` |
+| `API_KEYS` | Comma-separated list of valid API keys | - |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit time window in ms | `60000` |
+| `RATE_LIMIT_MAX_REQUESTS` | Max requests per window per API key | `100` |
 
 ## Running the Server
 
@@ -132,6 +138,63 @@ Then run:
 docker compose up -d
 ```
 
+## API Key Authentication
+
+The service supports optional API key authentication with per-key rate limiting. By default, authentication is disabled.
+
+### Enabling API Key Authentication
+
+1. Set `ENABLE_API_KEY=true` in your environment
+2. Configure valid API keys as a comma-separated list in `API_KEYS`
+3. Optionally configure rate limits with `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS`
+
+### Using API Keys
+
+When authentication is enabled, include the `X-API-Key` header in your requests:
+
+```bash
+curl -X POST http://localhost:3000/build \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{ ... }'
+```
+
+### Rate Limiting
+
+- Rate limiting applies to `/build`, `/permit-params`, and `/hypercore/permit-params` endpoints
+- The `/quote` endpoint is exempt from rate limiting (but still tracked in metrics)
+- `/health` and `/metrics` endpoints bypass authentication entirely
+- Default: 100 requests per minute per API key
+
+### Error Responses
+
+**Missing API Key (when authentication is enabled):**
+```json
+{
+  "success": false,
+  "error": "API key required. Please provide X-API-Key header.",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**Invalid API Key:**
+```json
+{
+  "success": false,
+  "error": "Invalid API key",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**Rate Limit Exceeded:**
+```json
+{
+  "success": false,
+  "error": "Rate limit exceeded. Please try again later.",
+  "code": "RATE_LIMITED"
+}
+```
+
 ## API Endpoints
 
 ### Health Check
@@ -148,6 +211,56 @@ Returns server status.
   "status": "ok",
   "timestamp": "2024-01-15T12:00:00.000Z"
 }
+```
+
+---
+
+### Get Forwarder Address
+
+```
+GET /forwarder-address
+```
+
+Returns the Mayan Forwarder contract address. Users must approve this address to spend their ERC20 tokens before executing swaps.
+
+**Response:**
+```json
+{
+  "success": true,
+  "forwarderAddress": "0x337685fdaB40D39bd02028545a4FfA7D287cC3E2",
+  "description": "Mayan Forwarder contract address. Approve this address to spend your ERC20 tokens before swapping."
+}
+```
+
+**Usage:** Before executing an EVM swap with ERC20 tokens, you must either:
+1. **Pre-approve** the forwarder address using the standard ERC20 `approve()` function
+2. **Use permit signature** via the `/permit-params` endpoint (for tokens that support EIP-2612)
+
+See [ERC20 Token Approval](#erc20-token-approval) section for detailed examples.
+
+---
+
+### Prometheus Metrics
+
+```
+GET /metrics
+```
+
+Returns Prometheus-formatted metrics for monitoring. This endpoint is always accessible without authentication.
+
+**Available Metrics:**
+- `api_requests_total` - Total API requests by API key, endpoint, method, and status
+- `api_request_duration_seconds` - Request duration histogram
+- `rate_limit_exceeded_total` - Rate limit exceeded events by API key and endpoint
+- Default Node.js metrics (CPU, memory, event loop, etc.)
+
+**Example Prometheus scrape config:**
+```yaml
+scrape_configs:
+  - job_name: 'mayan-tx-builder'
+    static_configs:
+      - targets: ['localhost:3000']
+    metrics_path: '/metrics'
 ```
 
 ---
@@ -496,6 +609,108 @@ const result = await suiClient.signAndExecuteTransaction({
 });
 ```
 
+## ERC20 Token Approval
+
+Before swapping ERC20 tokens on EVM chains, you must authorize the Mayan Forwarder contract to spend your tokens. There are two methods:
+
+### Method 1: Standard ERC20 Approval (Pre-approve)
+
+Use the standard `approve()` function to grant spending permission. This requires a separate transaction before the swap.
+
+```typescript
+import { ethers } from 'ethers';
+
+// Get forwarder address from the API
+const forwarderResponse = await fetch('http://localhost:3000/forwarder-address');
+const { forwarderAddress } = await forwarderResponse.json();
+
+// ERC20 approve ABI
+const ERC20_ABI = ['function approve(address spender, uint256 amount) returns (bool)'];
+
+// Create contract instance
+const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
+
+// Approve the forwarder to spend tokens (use max uint256 for unlimited approval)
+const approveTx = await tokenContract.approve(
+  forwarderAddress,
+  ethers.MaxUint256 // or specific amount
+);
+await approveTx.wait();
+
+// Now you can build and execute the swap transaction
+const buildResponse = await fetch('http://localhost:3000/build', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    quote,
+    params: {
+      swapperAddress: wallet.address,
+      destinationAddress: 'RecipientAddress',
+      signerChainId: 8453,
+      // No permit needed - already approved
+    },
+  }),
+});
+```
+
+### Method 2: EIP-2612 Permit Signature (Gasless Approval)
+
+For tokens that support EIP-2612 (like USDC), you can sign a permit message instead of sending an approval transaction. This saves gas and can be done in a single transaction.
+
+```typescript
+// 1. Get permit parameters
+const permitResponse = await fetch('http://localhost:3000/permit-params', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    quote,
+    walletAddress: wallet.address,
+  }),
+});
+const { permitParams } = await permitResponse.json();
+
+// 2. Sign the permit (EIP-712 typed data)
+const signature = await wallet.signTypedData(
+  permitParams.domain,
+  permitParams.types,
+  permitParams.value
+);
+
+// 3. Parse signature components
+const sig = ethers.Signature.from(signature);
+const permit = {
+  value: permitParams.value.value,
+  deadline: permitParams.value.deadline,
+  v: sig.v,
+  r: sig.r,
+  s: sig.s,
+};
+
+// 4. Build transaction with permit
+const buildResponse = await fetch('http://localhost:3000/build', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    quote,
+    params: {
+      swapperAddress: wallet.address,
+      destinationAddress: 'RecipientAddress',
+      signerChainId: 8453,
+      permit, // Include the permit signature
+    },
+  }),
+});
+```
+
+### Which Method to Use?
+
+| Method | Pros | Cons |
+|--------|------|------|
+| **Pre-approve** | Works with all ERC20 tokens | Requires separate transaction (extra gas) |
+| **Permit** | Single transaction, saves gas | Only works with EIP-2612 tokens |
+
+**Tip:** Check `quote.fromToken.supportsPermit` to see if the token supports permit signatures.
+
 ## Token Address Conventions
 
 | Chain | Native Token Address |
@@ -584,6 +799,8 @@ All endpoints return consistent error responses:
 | `INVALID_SIGNATURE` | Quote signature verification failed |
 | `BUILD_FAILED` | Transaction building failed |
 | `INTERNAL_ERROR` | Unexpected server error |
+| `UNAUTHORIZED` | Missing or invalid API key |
+| `RATE_LIMITED` | Rate limit exceeded |
 
 ## Architecture
 
@@ -597,6 +814,8 @@ src/
 │   ├── evm.ts        # EVM transaction builder
 │   ├── svm.ts        # Solana transaction builder
 │   └── sui.ts        # Sui transaction builder
+├── middleware/
+│   └── apiKey.ts     # API key auth and rate limiting
 └── utils/
     ├── signature.ts  # Quote signature verification
     └── hypercore.ts  # HyperCore permit utilities
