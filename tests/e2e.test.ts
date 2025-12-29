@@ -11,6 +11,7 @@ import {
   checkEvmBalance,
   fetchPermitParams,
   signPermit,
+  approveForwarder,
   getAddresses,
   CHAIN_IDS,
 } from './utils';
@@ -433,8 +434,8 @@ describe('E2E: Solana -> EVM', () => {
 });
 
 describe('E2E: EVM -> Sui', () => {
-  // Test 10: Base -> Sui (MCTP)
-  it('Test 10: Base USDC -> Sui USDC via MCTP', async () => {
+  // Test 10: Base -> Sui (MCTP) - Uses pre-approval
+  it('Test 10: Base USDC -> Sui USDC via MCTP (Pre-approved)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
     const toToken = '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
@@ -446,6 +447,9 @@ describe('E2E: EVM -> Sui', () => {
 
     if (process.env.EXECUTE === 'true') {
       await checkEvmBalance(fromToken, ADDRESSES.evm, fromChain, BigInt(amountIn64));
+      // Pre-approve forwarder to spend tokens
+      const approveTx = await approveForwarder(fromToken, fromChain);
+      if (approveTx) console.log('Approval tx:', approveTx);
     }
 
     const quote = await fetchQuote({
@@ -477,8 +481,8 @@ describe('E2E: EVM -> Sui', () => {
     }
   });
 
-  // Test 11: Ethereum -> Sui (MCTP)
-  it('Test 11: Ethereum USDC -> Sui USDC via MCTP', async () => {
+  // Test 11: Ethereum -> Sui (MCTP) - Uses permit signature
+  it('Test 11: Ethereum USDC -> Sui USDC via MCTP (Permit)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
     const toToken = '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
@@ -504,10 +508,18 @@ describe('E2E: EVM -> Sui', () => {
 
     expect(quote).toBeDefined();
 
+    // Get and sign permit
+    let permit;
+    if (process.env.EXECUTE === 'true') {
+      const permitParams = await fetchPermitParams(quote, ADDRESSES.evm);
+      permit = await signPermit(permitParams, fromChain);
+    }
+
     const result = await buildTransaction(quote, {
       swapperAddress: ADDRESSES.evm,
       destinationAddress: ADDRESSES.sui,
       signerChainId: CHAIN_IDS.ethereum,
+      permit,
     });
 
     expect(result.success).toBe(true);
@@ -523,8 +535,8 @@ describe('E2E: EVM -> Sui', () => {
 });
 
 describe('E2E: EVM -> Solana', () => {
-  // Test 12: Base -> Solana (SWIFT)
-  it('Test 12: Base USDC -> Solana USDC via SWIFT', async () => {
+  // Test 12: Base -> Solana (SWIFT) - Uses permit signature
+  it('Test 12: Base USDC -> Solana USDC via SWIFT (Permit)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
     const toToken = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -550,10 +562,18 @@ describe('E2E: EVM -> Solana', () => {
 
     expect(quote).toBeDefined();
 
+    // Get and sign permit
+    let permit;
+    if (process.env.EXECUTE === 'true') {
+      const permitParams = await fetchPermitParams(quote, ADDRESSES.evm);
+      permit = await signPermit(permitParams, fromChain);
+    }
+
     const result = await buildTransaction(quote, {
       swapperAddress: ADDRESSES.evm,
       destinationAddress: ADDRESSES.solana,
       signerChainId: CHAIN_IDS.base,
+      permit,
     });
 
     expect(result.success).toBe(true);
@@ -567,8 +587,8 @@ describe('E2E: EVM -> Solana', () => {
     }
   });
 
-  // Test 13: Base -> Solana (Fast MCTP)
-  it('Test 13: Base USDC -> Solana USDC via Fast MCTP', async () => {
+  // Test 13: Base -> Solana (Fast MCTP) - Uses pre-approval
+  it('Test 13: Base USDC -> Solana USDC via Fast MCTP (Pre-approved)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
     const toToken = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -580,6 +600,9 @@ describe('E2E: EVM -> Solana', () => {
 
     if (process.env.EXECUTE === 'true') {
       await checkEvmBalance(fromToken, ADDRESSES.evm, fromChain, BigInt(amountIn64));
+      // Pre-approve forwarder to spend tokens
+      const approveTx = await approveForwarder(fromToken, fromChain);
+      if (approveTx) console.log('Approval tx:', approveTx);
     }
 
     const quote = await fetchQuote({
@@ -611,8 +634,8 @@ describe('E2E: EVM -> Solana', () => {
     }
   });
 
-  // Test 14: Arbitrum -> Solana (SWIFT)
-  it('Test 14: Arbitrum USDC -> Solana USDC via SWIFT', async () => {
+  // Test 14: Arbitrum -> Solana (SWIFT) - Uses permit signature
+  it('Test 14: Arbitrum USDC -> Solana USDC via SWIFT (Permit)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
     const toToken = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -638,10 +661,18 @@ describe('E2E: EVM -> Solana', () => {
 
     expect(quote).toBeDefined();
 
+    // Get and sign permit
+    let permit;
+    if (process.env.EXECUTE === 'true') {
+      const permitParams = await fetchPermitParams(quote, ADDRESSES.evm);
+      permit = await signPermit(permitParams, fromChain);
+    }
+
     const result = await buildTransaction(quote, {
       swapperAddress: ADDRESSES.evm,
       destinationAddress: ADDRESSES.solana,
       signerChainId: CHAIN_IDS.arbitrum,
+      permit,
     });
 
     expect(result.success).toBe(true);
@@ -655,8 +686,8 @@ describe('E2E: EVM -> Solana', () => {
     }
   });
 
-  // Test 15: Polygon -> Solana (SWIFT)
-  it('Test 15: Polygon USDC -> Solana USDC via SWIFT', async () => {
+  // Test 15: Polygon -> Solana (SWIFT) - Uses pre-approval
+  it('Test 15: Polygon USDC -> Solana USDC via SWIFT (Pre-approved)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
     const toToken = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -668,6 +699,9 @@ describe('E2E: EVM -> Solana', () => {
 
     if (process.env.EXECUTE === 'true') {
       await checkEvmBalance(fromToken, ADDRESSES.evm, fromChain, BigInt(amountIn64));
+      // Pre-approve forwarder to spend tokens
+      const approveTx = await approveForwarder(fromToken, fromChain);
+      if (approveTx) console.log('Approval tx:', approveTx);
     }
 
     const quote = await fetchQuote({
@@ -701,8 +735,8 @@ describe('E2E: EVM -> Solana', () => {
 });
 
 describe('E2E: EVM -> EVM (Cross-chain)', () => {
-  // Test 16: Base -> Arbitrum (SWIFT)
-  it('Test 16: Base USDC -> Arbitrum USDC via SWIFT', async () => {
+  // Test 16: Base -> Arbitrum (SWIFT) - Uses pre-approval
+  it('Test 16: Base USDC -> Arbitrum USDC via SWIFT (Pre-approved)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
     const toToken = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
@@ -714,6 +748,9 @@ describe('E2E: EVM -> EVM (Cross-chain)', () => {
 
     if (process.env.EXECUTE === 'true') {
       await checkEvmBalance(fromToken, ADDRESSES.evm, fromChain, BigInt(amountIn64));
+      // Pre-approve forwarder to spend tokens
+      const approveTx = await approveForwarder(fromToken, fromChain);
+      if (approveTx) console.log('Approval tx:', approveTx);
     }
 
     const quote = await fetchQuote({
@@ -745,8 +782,8 @@ describe('E2E: EVM -> EVM (Cross-chain)', () => {
     }
   });
 
-  // Test 17: Arbitrum -> Polygon (MCTP)
-  it('Test 17: Arbitrum USDC -> Polygon USDC via MCTP', async () => {
+  // Test 17: Arbitrum -> Polygon (MCTP) - Uses pre-approval
+  it('Test 17: Arbitrum USDC -> Polygon USDC via MCTP (Pre-approved)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
     const toToken = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
@@ -758,6 +795,9 @@ describe('E2E: EVM -> EVM (Cross-chain)', () => {
 
     if (process.env.EXECUTE === 'true') {
       await checkEvmBalance(fromToken, ADDRESSES.evm, fromChain, BigInt(amountIn64));
+      // Pre-approve forwarder to spend tokens
+      const approveTx = await approveForwarder(fromToken, fromChain);
+      if (approveTx) console.log('Approval tx:', approveTx);
     }
 
     const quote = await fetchQuote({
@@ -789,8 +829,8 @@ describe('E2E: EVM -> EVM (Cross-chain)', () => {
     }
   });
 
-  // Test 18: Ethereum -> Base (SWIFT)
-  it('Test 18: Ethereum USDC -> Base USDC via SWIFT', async () => {
+  // Test 18: Ethereum -> Base (SWIFT) - Uses permit signature
+  it('Test 18: Ethereum USDC -> Base USDC via SWIFT (Permit)', async () => {
     // ============ FILL THESE VALUES ============
     const fromToken = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
     const toToken = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
@@ -816,10 +856,18 @@ describe('E2E: EVM -> EVM (Cross-chain)', () => {
 
     expect(quote).toBeDefined();
 
+    // Get and sign permit
+    let permit;
+    if (process.env.EXECUTE === 'true') {
+      const permitParams = await fetchPermitParams(quote, ADDRESSES.evm);
+      permit = await signPermit(permitParams, fromChain);
+    }
+
     const result = await buildTransaction(quote, {
       swapperAddress: ADDRESSES.evm,
       destinationAddress: ADDRESSES.evm,
       signerChainId: CHAIN_IDS.ethereum,
+      permit,
     });
 
     expect(result.success).toBe(true);
