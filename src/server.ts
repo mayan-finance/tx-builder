@@ -95,16 +95,6 @@ export function createServer(config: ServerConfig) {
     });
   });
 
-  // Prometheus metrics endpoint
-  app.get('/metrics', async (_req: Request, res: Response) => {
-    try {
-      res.set('Content-Type', 'text/plain');
-      res.send(await getMetrics());
-    } catch (error) {
-      res.status(500).send('Error collecting metrics');
-    }
-  });
-
   // Fetch quote endpoint
   app.post('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
     try {
@@ -463,17 +453,43 @@ function validateQuoteRequest(body: FetchQuoteRequest): string | null {
   return null;
 }
 
+/**
+ * Create a separate Express app for Prometheus metrics
+ * This runs on a different port for security (not exposed publicly)
+ */
+export function createMetricsServer() {
+  const metricsApp = express();
+
+  // Health check for metrics server
+  metricsApp.get('/health', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Prometheus metrics endpoint
+  metricsApp.get('/metrics', async (_req: Request, res: Response) => {
+    try {
+      res.set('Content-Type', 'text/plain');
+      res.send(await getMetrics());
+    } catch (error) {
+      res.status(500).send('Error collecting metrics');
+    }
+  });
+
+  return metricsApp;
+}
+
 export function startServer(config: ServerConfig) {
   const app = createServer(config);
+  const metricsApp = createMetricsServer();
 
   // Start rate limit cleanup interval
   const cleanupInterval = startRateLimitCleanup();
 
+  // Start main API server
   const server = app.listen(config.port, () => {
     const apiKeyConfig = getApiKeyConfig();
     console.log(`Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
-    console.log(`   Metrics: http://localhost:${config.port}/metrics`);
     console.log(`   Quote endpoint: POST http://localhost:${config.port}/quote`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
     console.log(`   API Key auth: ${apiKeyConfig.enabled ? 'enabled' : 'disabled'}`);
@@ -482,9 +498,16 @@ export function startServer(config: ServerConfig) {
     }
   });
 
+  // Start metrics server on separate port
+  const metricsServer = metricsApp.listen(config.metricsPort, () => {
+    console.log(`Prometheus metrics server running on port ${config.metricsPort}`);
+    console.log(`   Metrics: http://localhost:${config.metricsPort}/metrics`);
+  });
+
   // Cleanup on server close
   server.on('close', () => {
     clearInterval(cleanupInterval);
+    metricsServer.close();
   });
 
   return app;

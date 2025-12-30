@@ -171,6 +171,7 @@ export interface ErrorResponse {
 // Configuration
 export interface ServerConfig {
   port: number;
+  metricsPort: number;
   expectedSignerAddress: string;
   solanaRpcUrl: string;
   fogoRpcUrl: string;

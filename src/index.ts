@@ -20,6 +20,7 @@ const evmRpcUrls: Record<number, string> = {
 // Load configuration from environment variables
 const config: ServerConfig = {
   port: parseInt(process.env.PORT || '3000', 10),
+  metricsPort: parseInt(process.env.METRICS_PORT || '9090', 10),
   expectedSignerAddress: process.env.EXPECTED_SIGNER_ADDRESS || '0xe8FDd6f6D10532bd49Cced5502CAa483E232E637',
   solanaRpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
   fogoRpcUrl: process.env.FOGO_RPC_URL || 'https://rpc.fogo.network',
@@ -37,7 +38,7 @@ if (!config.expectedSignerAddress) {
 startServer(config);
 
 // Export for programmatic use
-export { createServer, startServer } from './server';
+export { createServer, createMetricsServer, startServer } from './server';
 export { buildTransaction, buildTransactions } from './builders';
 export { verifyQuoteSignature, validateQuotes } from './utils/signature';
 export * from './types';

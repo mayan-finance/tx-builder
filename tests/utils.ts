@@ -179,7 +179,7 @@ export interface QuoteParams {
 export async function fetchQuote(params: QuoteParams): Promise<any> {
   const response = await fetch(`${SERVER_URL}/quote`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
     body: JSON.stringify({
       fromToken: params.fromToken,
       fromChain: params.fromChain,
@@ -205,7 +205,7 @@ export async function fetchQuote(params: QuoteParams): Promise<any> {
 export async function buildTransaction(quote: any, params: any): Promise<any> {
   const response = await fetch(`${SERVER_URL}/build`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
     body: JSON.stringify({ quote, params }),
   });
 
@@ -306,7 +306,7 @@ export async function executeEvmTransaction(result: any, chain: string): Promise
 export async function fetchPermitParams(quote: any, walletAddress: string, deadline?: string): Promise<any> {
   const response = await fetch(`${SERVER_URL}/permit-params`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
     body: JSON.stringify({
       quote,
       walletAddress,
