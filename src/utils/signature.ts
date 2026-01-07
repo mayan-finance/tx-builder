@@ -21,6 +21,30 @@ function sortObjectKeys(obj: any): any {
 	return obj;
 }
 
+
+/**
+ * Remove null and undefined values from object
+ */
+export function removeNullAndUndefined(obj: any): any {
+	if (obj === null || obj === undefined || (typeof obj === 'number' && !Number.isFinite(obj))) {
+		return undefined;
+	}
+	if (Array.isArray(obj)) {
+		return obj.map(removeNullAndUndefined).filter(v => v !== undefined && v !== null);
+	}
+	if (typeof obj === 'object') {
+		const result: any = {};
+		for (const [key, value] of Object.entries(obj)) {
+			const cleaned = removeNullAndUndefined(value);
+			if (cleaned !== undefined && cleaned !== null) {
+				result[key] = cleaned;
+			}
+		}
+		return result;
+	}
+	return obj;
+}
+
 /**
  * JSON replacer for BigInt and other special types
  */
@@ -47,7 +71,7 @@ export function verifyQuoteSignature(
   }
 
   try {
-	const quoteWithoutNullOrUndefinedValues = Object.fromEntries(Object.entries(quoteWithoutSignature).filter(([_, value]) => value !== null && value !== undefined));
+    const quoteWithoutNullOrUndefinedValues = removeNullAndUndefined(quoteWithoutSignature);
     const sortedQuote = sortObjectKeys(quoteWithoutNullOrUndefinedValues);
     const quoteString = JSON.stringify(sortedQuote, jsonReplacer);
 
