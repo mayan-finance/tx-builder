@@ -60,6 +60,18 @@ export function createServer(config: ServerConfig) {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
+  // CORS middleware
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
+
   // Apply API key middleware for authentication and rate limiting
   // Note: /quote endpoint is exempt from rate limiting, but still tracked in metrics
   const apiKeyConfig = getApiKeyConfig();
