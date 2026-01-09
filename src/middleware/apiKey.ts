@@ -135,8 +135,8 @@ export function apiKeyMiddleware(config?: ApiKeyConfig) {
   const finalConfig = config || getApiKeyConfig();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    // Skip middleware entirely for health check and metrics endpoints
-    if (req.path === '/health' || req.path === '/metrics') {
+    // Skip middleware entirely for health check, metrics, and OPTIONS preflight requests
+    if (req.path === '/health' || req.path === '/metrics' || req.method === 'OPTIONS') {
       return next();
     }
 
