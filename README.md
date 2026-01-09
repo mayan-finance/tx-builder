@@ -268,22 +268,14 @@ scrape_configs:
 ### Fetch Quote
 
 ```
-POST /quote
+GET /quote
 ```
 
 Fetches swap quotes from Mayan's routing engine.
 
-**Request Body:**
-```json
-{
-  "fromToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-  "fromChain": "base",
-  "toToken": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  "toChain": "solana",
-  "amountIn64": "3000000",
-  "slippageBps": "auto",
-  "swift": true
-}
+**Query Parameters:**
+```
+GET /quote?fromToken=0x833589fcd6edb6e08f4c7c32d4f71b54bda02913&fromChain=base&toToken=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&toChain=solana&amountIn64=3000000&slippageBps=auto&swift=true
 ```
 
 | Field | Type | Required | Description |
@@ -472,20 +464,17 @@ Gets permit parameters for HyperCore USDC deposits on Arbitrum.
 
 ```typescript
 // 1. Fetch a quote
-const quoteResponse = await fetch('http://localhost:3000/quote', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-    fromChain: 'base',
-    toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    toChain: 'solana',
-    amountIn64: '3000000',
-    slippageBps: 'auto',
-    swift: true,
-  }),
+const quoteParams = new URLSearchParams({
+  fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+  fromChain: 'base',
+  toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  toChain: 'solana',
+  amountIn64: '3000000',
+  slippageBps: 'auto',
+  swift: 'true',
 });
 
+const quoteResponse = await fetch(`http://localhost:3000/quote?${quoteParams}`);
 const { quotes } = await quoteResponse.json();
 const quote = quotes[0];
 

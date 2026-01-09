@@ -177,21 +177,22 @@ export interface QuoteParams {
 }
 
 export async function fetchQuote(params: QuoteParams): Promise<any> {
-  const response = await fetch(`${SERVER_URL}/quote`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
-    body: JSON.stringify({
-      fromToken: params.fromToken,
-      fromChain: params.fromChain,
-      toToken: params.toToken,
-      toChain: params.toChain,
-      amountIn64: params.amountIn64,
-      slippageBps: params.slippageBps ?? 'auto',
-      swift: params.swift ?? false,
-      mctp: params.mctp ?? false,
-      fastMctp: params.fastMctp ?? false,
-      monoChain: params.monoChain ?? false,
-    }),
+  const queryParams = new URLSearchParams({
+    fromToken: params.fromToken,
+    fromChain: params.fromChain,
+    toToken: params.toToken,
+    toChain: params.toChain,
+    amountIn64: params.amountIn64,
+    slippageBps: String(params.slippageBps ?? 'auto'),
+    swift: String(params.swift ?? false),
+    mctp: String(params.mctp ?? false),
+    fastMctp: String(params.fastMctp ?? false),
+    monoChain: String(params.monoChain ?? false),
+  });
+
+  const response = await fetch(`${SERVER_URL}/quote?${queryParams}`, {
+    method: 'GET',
+    headers: { 'X-API-KEY': process.env.API_KEY || '' },
   });
 
   const data = await response.json();

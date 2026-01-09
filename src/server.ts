@@ -108,9 +108,32 @@ export function createServer(config: ServerConfig) {
   });
 
   // Fetch quote endpoint
-  app.post('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
+  app.get('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
     try {
-      const body = req.body as FetchQuoteRequest;
+      // Parse query parameters with type conversions
+      const query = req.query;
+      const body: FetchQuoteRequest = {
+        fromToken: query.fromToken as string,
+        fromChain: query.fromChain as FetchQuoteRequest['fromChain'],
+        toToken: query.toToken as string,
+        toChain: query.toChain as FetchQuoteRequest['toChain'],
+        slippageBps: query.slippageBps === 'auto' ? 'auto' : Number(query.slippageBps),
+        amount: query.amount !== undefined ? Number(query.amount) : undefined,
+        amountIn64: query.amountIn64 as string | undefined,
+        gasDrop: query.gasDrop !== undefined ? Number(query.gasDrop) : undefined,
+        referrer: query.referrer as string | undefined,
+        referrerBps: query.referrerBps !== undefined ? Number(query.referrerBps) : undefined,
+        wormhole: query.wormhole !== undefined ? query.wormhole === 'true' : undefined,
+        swift: query.swift !== undefined ? query.swift === 'true' : undefined,
+        mctp: query.mctp !== undefined ? query.mctp === 'true' : undefined,
+        shuttle: query.shuttle !== undefined ? query.shuttle === 'true' : undefined,
+        fastMctp: query.fastMctp !== undefined ? query.fastMctp === 'true' : undefined,
+        gasless: query.gasless !== undefined ? query.gasless === 'true' : undefined,
+        onlyDirect: query.onlyDirect !== undefined ? query.onlyDirect === 'true' : undefined,
+        fullList: query.fullList !== undefined ? query.fullList === 'true' : undefined,
+        payload: query.payload as string | undefined,
+        monoChain: query.monoChain !== undefined ? query.monoChain === 'true' : undefined,
+      };
 
       // Validate required fields
       const validationError = validateQuoteRequest(body);
@@ -502,7 +525,7 @@ export function startServer(config: ServerConfig) {
     const apiKeyConfig = getApiKeyConfig();
     console.log(`Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
-    console.log(`   Quote endpoint: POST http://localhost:${config.port}/quote`);
+    console.log(`   Quote endpoint: GET http://localhost:${config.port}/quote`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
     console.log(`   API Key auth: ${apiKeyConfig.enabled ? 'enabled' : 'disabled'}`);
     if (apiKeyConfig.enabled) {
