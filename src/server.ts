@@ -187,8 +187,21 @@ export function createServer(config: ServerConfig) {
         quotes: serializeBigInts(quotes) as Quote[],
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('Fetch quote error:', error);
+
+      // Handle SDK errors which have { code, message, data? } format
+      const sdkError = error as { code?: string | number; message?: string; msg?: string; data?: unknown };
+      if (sdkError.code !== undefined && (sdkError.message || sdkError.msg)) {
+        return res.status(400).json({
+          success: false,
+          error: sdkError.message || sdkError.msg,
+          code: String(sdkError.code),
+          ...(sdkError.data !== undefined && { data: sdkError.data }),
+        });
+      }
+
+      // Handle standard Error objects
+      const message = error instanceof Error ? error.message : 'Unknown error';
       return res.status(500).json({
         success: false,
         error: message,

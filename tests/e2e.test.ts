@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import {
   fetchQuote,
+  fetchQuoteRaw,
   buildTransaction,
   executeSolanaTransaction,
   executeSuiTransaction,
@@ -1034,5 +1035,30 @@ describe('E2E: EVM with Permit', () => {
       const swapData = await waitForSwapIndexed(txHash);
       console.log('Swap indexed:', swapData.status);
     }
+  });
+});
+
+describe('Quote Error Handling', () => {
+  // Test 22: SDK error propagation (amount too small)
+  it('Test 22: Quote returns SDK error for amount too small', async () => {
+    const result = await fetchQuoteRaw({
+      fromToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      fromChain: 'solana',
+      toToken: '0x0000000000000000000000000000000000000000',
+      toChain: 'bsc',
+      amountIn64: '1', // 0.000001 USDC - way too small
+      slippageBps: 'auto',
+      swift: true,
+    });
+
+    // Should return 400, not 500
+    expect(result.status).toBe(400);
+    expect(result.data.success).toBe(false);
+    // Should propagate the SDK error code and message
+    expect(result.data.code).toBe('AMOUNT_TOO_SMALL');
+    expect(result.data.error).toContain('Amount too small');
+    // Should include data from SDK
+    expect(result.data.data).toBeDefined();
+    expect(result.data.data.minAmountIn).toBeDefined();
   });
 });

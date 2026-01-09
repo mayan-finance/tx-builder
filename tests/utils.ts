@@ -202,6 +202,30 @@ export async function fetchQuote(params: QuoteParams): Promise<any> {
   return data.quotes[0];
 }
 
+// Fetch quote and return raw response (for testing error cases)
+export async function fetchQuoteRaw(params: QuoteParams): Promise<{ status: number; data: any }> {
+  const queryParams = new URLSearchParams({
+    fromToken: params.fromToken,
+    fromChain: params.fromChain,
+    toToken: params.toToken,
+    toChain: params.toChain,
+    amountIn64: params.amountIn64,
+    slippageBps: String(params.slippageBps ?? 'auto'),
+    swift: String(params.swift ?? false),
+    mctp: String(params.mctp ?? false),
+    fastMctp: String(params.fastMctp ?? false),
+    monoChain: String(params.monoChain ?? false),
+  });
+
+  const response = await fetch(`${SERVER_URL}/quote?${queryParams}`, {
+    method: 'GET',
+    headers: { 'X-API-KEY': process.env.API_KEY || '' },
+  });
+
+  const data = await response.json();
+  return { status: response.status, data };
+}
+
 // Build transaction - uses local /build endpoint
 export async function buildTransaction(quote: any, params: any): Promise<any> {
   const response = await fetch(`${SERVER_URL}/build`, {
