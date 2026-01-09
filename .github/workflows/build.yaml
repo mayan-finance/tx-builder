@@ -1,0 +1,30 @@
+name: Build Image
+run-name: Building Images
+
+on:
+  push:
+    branches:
+      - '*'
+      - '*/*'
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout main
+      uses: actions/checkout@v3
+
+    - name: Install doctl
+      uses: digitalocean/action-doctl@v2
+      with:
+        token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+    - name: Build txbuilder container image
+      run: docker build -f ./Dockerfile -t registry.digitalocean.com/${{ secrets.REGISTRY_NAME }}/txbuilder:$(echo $GITHUB_SHA | head -c7) .
+
+    - name: Log into DigitalOcean Container Registry with short-lived credentials
+      run: doctl registry login --expiry-seconds 1200
+
+    - name: Push txbuilder image to DigitalOcean Container Registry
+      run: docker push registry.digitalocean.com/${{ secrets.REGISTRY_NAME }}/txbuilder:$(echo $GITHUB_SHA | head -c7)
