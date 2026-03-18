@@ -6,7 +6,7 @@ import {fetchQuote, type Quote, type QuoteParams, type QuoteOptions, addresses} 
 import { verifyQuoteSignature } from './utils/signature';
 import { buildTransaction, type BuilderConnections } from './builders';
 import { getPermitParams, getHyperCorePermitParams } from './utils/hypercore';
-import { apiKeyMiddleware, getMetrics, startRateLimitCleanup, getApiKeyConfig } from './middleware/apiKey';
+import { metricsMiddleware, getMetrics } from './middleware/apiKey';
 import type {
   SignedQuote,
   BuildTransactionRequest,
@@ -72,10 +72,8 @@ export function createServer(config: ServerConfig) {
     next();
   });
 
-  // Apply API key middleware for authentication and rate limiting
-  // Note: /quote endpoint is exempt from rate limiting, but still tracked in metrics
-  const apiKeyConfig = getApiKeyConfig();
-  app.use(apiKeyMiddleware(apiKeyConfig));
+  // Apply metrics middleware
+  app.use(metricsMiddleware());
 
   // Initialize connections
   const connections: BuilderConnections = {
@@ -167,7 +165,9 @@ export function createServer(config: ServerConfig) {
       if (body.referrerBps !== undefined) quoteParams.referrerBps = body.referrerBps;
 
       // Build QuoteOptions from flat request
-      const quoteOptions: QuoteOptions = {};
+      const quoteOptions: QuoteOptions = {
+        apiKey: process.env.SWAP_SDK_API_KEY,
+      };
       if (body.wormhole !== undefined) quoteOptions.wormhole = body.wormhole;
       if (body.swift !== undefined) quoteOptions.swift = body.swift;
       if (body.mctp !== undefined) quoteOptions.mctp = body.mctp;
@@ -191,10 +191,11 @@ export function createServer(config: ServerConfig) {
 
       // Handle SDK errors which have { code, message, data? } format
       const sdkError = error as { code?: string | number; message?: string; msg?: string; data?: unknown };
-      if (sdkError.code !== undefined && (sdkError.message || sdkError.msg)) {
+      const sdkErrorMessage = sdkError.message || sdkError.msg || 'Unknown error';
+      if (sdkError.code !== undefined) {
         return res.status(400).json({
           success: false,
-          error: sdkError.message || sdkError.msg,
+          error: sdkErrorMessage,
           code: String(sdkError.code),
           ...(sdkError.data !== undefined && { data: sdkError.data }),
         });
@@ -530,20 +531,12 @@ export function startServer(config: ServerConfig) {
   const app = createServer(config);
   const metricsApp = createMetricsServer();
 
-  // Start rate limit cleanup interval
-  const cleanupInterval = startRateLimitCleanup();
-
   // Start main API server
   const server = app.listen(config.port, () => {
-    const apiKeyConfig = getApiKeyConfig();
     console.log(`Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
     console.log(`   Quote endpoint: GET http://localhost:${config.port}/quote`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
-    console.log(`   API Key auth: ${apiKeyConfig.enabled ? 'enabled' : 'disabled'}`);
-    if (apiKeyConfig.enabled) {
-      console.log(`   Rate limit: ${apiKeyConfig.rateLimit.maxRequests} requests per ${apiKeyConfig.rateLimit.windowMs / 1000}s`);
-    }
   });
 
   // Start metrics server on separate port
@@ -554,7 +547,6 @@ export function startServer(config: ServerConfig) {
 
   // Cleanup on server close
   server.on('close', () => {
-    clearInterval(cleanupInterval);
     metricsServer.close();
   });
 

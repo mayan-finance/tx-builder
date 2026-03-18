@@ -61,6 +61,10 @@ export async function buildEvmTransaction(
   }
 
   // Non-gasless: Build transaction calldata
+  const options = {
+    usdcPermitSignature,
+    apiKey: process.env.SWAP_SDK_API_KEY,
+  }
   const txPayload = await getSwapFromEvmTxPayload(
     quote,
     swapperAddress,
@@ -70,7 +74,7 @@ export async function buildEvmTransaction(
     signerChainId,
     payload,
     permitParam,
-    usdcPermitSignature ? { usdcPermitSignature } : undefined
+    options,
   );
 
   // Resolve the 'to' address if it's a promise

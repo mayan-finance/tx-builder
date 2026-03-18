@@ -16,7 +16,6 @@ A RESTful API service that generates unsigned transactions for cross-chain swaps
 - **Permit Support**: EIP-2612 permit signatures for gasless token approvals
 - **Monochain Swaps**: Single-chain token swaps with DEX aggregation
 - **Quote Signature Verification**: Cryptographic verification of all quotes
-- **API Key Authentication**: Optional API key requirement with rate limiting
 - **Prometheus Metrics**: Built-in metrics endpoint for monitoring
 
 ## Supported Chains
@@ -67,10 +66,6 @@ cp .env.example .env
 | `AVALANCHE_RPC_URL` | Avalanche RPC endpoint | Public RPC |
 | `BSC_RPC_URL` | BSC RPC endpoint | Public RPC |
 | `OPTIMISM_RPC_URL` | Optimism RPC endpoint | Public RPC |
-| `ENABLE_API_KEY` | Enable API key authentication | `false` |
-| `API_KEYS` | Comma-separated list of valid API keys | - |
-| `RATE_LIMIT_WINDOW_MS` | Rate limit time window in ms | `60000` |
-| `RATE_LIMIT_MAX_REQUESTS` | Max requests per window per API key | `100` |
 
 ## Running the Server
 
@@ -138,63 +133,6 @@ Then run:
 docker compose up -d
 ```
 
-## API Key Authentication
-
-The service supports optional API key authentication with per-key rate limiting. By default, authentication is disabled.
-
-### Enabling API Key Authentication
-
-1. Set `ENABLE_API_KEY=true` in your environment
-2. Configure valid API keys as a comma-separated list in `API_KEYS`
-3. Optionally configure rate limits with `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX_REQUESTS`
-
-### Using API Keys
-
-When authentication is enabled, include the `X-API-Key` header in your requests:
-
-```bash
-curl -X POST http://localhost:3000/build \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{ ... }'
-```
-
-### Rate Limiting
-
-- Rate limiting applies to `/build`, `/permit-params`, and `/hypercore/permit-params` endpoints
-- The `/quote` endpoint is exempt from rate limiting (but still tracked in metrics)
-- `/health` and `/metrics` endpoints bypass authentication entirely
-- Default: 100 requests per minute per API key
-
-### Error Responses
-
-**Missing API Key (when authentication is enabled):**
-```json
-{
-  "success": false,
-  "error": "API key required. Please provide X-API-Key header.",
-  "code": "UNAUTHORIZED"
-}
-```
-
-**Invalid API Key:**
-```json
-{
-  "success": false,
-  "error": "Invalid API key",
-  "code": "UNAUTHORIZED"
-}
-```
-
-**Rate Limit Exceeded:**
-```json
-{
-  "success": false,
-  "error": "Rate limit exceeded. Please try again later.",
-  "code": "RATE_LIMITED"
-}
-```
-
 ## API Endpoints
 
 ### Health Check
@@ -249,9 +187,8 @@ GET /metrics
 Returns Prometheus-formatted metrics for monitoring. This endpoint is always accessible without authentication.
 
 **Available Metrics:**
-- `api_requests_total` - Total API requests by API key, endpoint, method, and status
+- `api_requests_total` - Total API requests by endpoint, method, and status
 - `api_request_duration_seconds` - Request duration histogram
-- `rate_limit_exceeded_total` - Rate limit exceeded events by API key and endpoint
 - Default Node.js metrics (CPU, memory, event loop, etc.)
 
 **Example Prometheus scrape config:**
@@ -788,8 +725,6 @@ All endpoints return consistent error responses:
 | `INVALID_SIGNATURE` | Quote signature verification failed |
 | `BUILD_FAILED` | Transaction building failed |
 | `INTERNAL_ERROR` | Unexpected server error |
-| `UNAUTHORIZED` | Missing or invalid API key |
-| `RATE_LIMITED` | Rate limit exceeded |
 
 ## Architecture
 
@@ -804,7 +739,7 @@ src/
 │   ├── svm.ts        # Solana transaction builder
 │   └── sui.ts        # Sui transaction builder
 ├── middleware/
-│   └── apiKey.ts     # API key auth and rate limiting
+│   └── apiKey.ts     # Request metrics tracking
 └── utils/
     ├── signature.ts  # Quote signature verification
     └── hypercore.ts  # HyperCore permit utilities
