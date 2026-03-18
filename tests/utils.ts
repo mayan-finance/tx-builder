@@ -192,7 +192,6 @@ export async function fetchQuote(params: QuoteParams): Promise<any> {
 
   const response = await fetch(`${SERVER_URL}/quote?${queryParams}`, {
     method: 'GET',
-    headers: { 'X-API-KEY': process.env.API_KEY || '' },
   });
 
   const data = await response.json();
@@ -219,7 +218,6 @@ export async function fetchQuoteRaw(params: QuoteParams): Promise<{ status: numb
 
   const response = await fetch(`${SERVER_URL}/quote?${queryParams}`, {
     method: 'GET',
-    headers: { 'X-API-KEY': process.env.API_KEY || '' },
   });
 
   const data = await response.json();
@@ -230,7 +228,7 @@ export async function fetchQuoteRaw(params: QuoteParams): Promise<{ status: numb
 export async function buildTransaction(quote: any, params: any): Promise<any> {
   const response = await fetch(`${SERVER_URL}/build`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ quote, params }),
   });
 
@@ -331,7 +329,7 @@ export async function executeEvmTransaction(result: any, chain: string): Promise
 export async function fetchPermitParams(quote: any, walletAddress: string, deadline?: string): Promise<any> {
   const response = await fetch(`${SERVER_URL}/permit-params`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-KEY': process.env.API_KEY || '' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       quote,
       walletAddress,

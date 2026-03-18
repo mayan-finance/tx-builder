@@ -46,7 +46,9 @@ export async function buildSuiTransaction(
   const payload = customPayload ? hexToBuffer(customPayload) : undefined;
 
   // Build composable options
-  const options: ComposableSuiMoveCallsOptions = {};
+  const options: ComposableSuiMoveCallsOptions = {
+    apiKey: process.env.SWAP_SDK_API_KEY,
+  };
 
   if (usdcPermitSignature) {
     options.usdcPermitSignature = usdcPermitSignature;

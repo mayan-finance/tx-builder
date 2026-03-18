@@ -50,6 +50,7 @@ export async function buildSvmTransaction(
       forceSkipCctpInstructions,
       separateSwapTx,
       skipProxyMayanInstructions,
+      apiKey: process.env.SWAP_SDK_API_KEY,
     }
   );
 

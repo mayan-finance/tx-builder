@@ -90,7 +90,7 @@ describe('E2E: Sui -> Solana', () => {
     const fromChain = 'sui';
     const toChain = 'solana';
     const slippage: 'auto' | number = 'auto';
-    const amountIn64 = '1000000000'; // 1 SUI (9 decimals)
+    const amountIn64 = '2000000000'; // 1 SUI (9 decimals)
     // ===========================================
 
     if (process.env.EXECUTE === 'true') {
