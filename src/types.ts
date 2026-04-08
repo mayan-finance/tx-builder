@@ -263,6 +263,7 @@ export interface FetchQuoteRequest {
   fullList?: boolean;
   payload?: string;
   monoChain?: boolean;
+  memoHex?: string;
 }
 
 export interface FetchQuoteResponse {

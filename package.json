@@ -23,7 +23,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@mayanfinance/swap-sdk": "^13.2.0",
+    "@mayanfinance/swap-sdk": "^13.3.0",
     "@mysten/sui": "^1.17.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.0",

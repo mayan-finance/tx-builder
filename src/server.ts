@@ -131,6 +131,7 @@ export function createServer(config: ServerConfig) {
         fullList: query.fullList !== undefined ? query.fullList === 'true' : undefined,
         payload: query.payload as string | undefined,
         monoChain: query.monoChain !== undefined ? query.monoChain === 'true' : undefined,
+        memoHex: query.payload as string | undefined,
       };
 
       // Validate required fields
@@ -166,7 +167,7 @@ export function createServer(config: ServerConfig) {
 
       // Build QuoteOptions from flat request
       const quoteOptions: QuoteOptions = {
-        apiKey: process.env.SWAP_SDK_API_KEY,
+        apiKey: req.headers['x-api-key'] as string | undefined,
       };
       if (body.wormhole !== undefined) quoteOptions.wormhole = body.wormhole;
       if (body.swift !== undefined) quoteOptions.swift = body.swift;
@@ -178,6 +179,7 @@ export function createServer(config: ServerConfig) {
       if (body.fullList !== undefined) quoteOptions.fullList = body.fullList;
       if (body.payload) quoteOptions.payload = body.payload;
       if (body.monoChain !== undefined) quoteOptions.monoChain = body.monoChain;
+      if (body.memoHex) quoteOptions.memoHex = body.memoHex;
 
       // Fetch quotes
       const quotes = await fetchQuote(quoteParams, quoteOptions);

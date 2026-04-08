@@ -4,7 +4,7 @@
     "": {
       "name": "tx-builder",
       "dependencies": {
-        "@mayanfinance/swap-sdk": "^13.2.0",
+        "@mayanfinance/swap-sdk": "^13.3.0",
         "@mysten/sui": "^1.17.0",
         "@solana/spl-token": "^0.4.14",
         "@solana/web3.js": "^1.98.0",
@@ -94,7 +94,7 @@
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
-    "@mayanfinance/swap-sdk": ["@mayanfinance/swap-sdk@13.2.0", "", { "dependencies": { "@mysten/sui": "^1.34.0", "@noble/hashes": "1.8.0", "@solana/buffer-layout": "^4 || ^3", "@solana/web3.js": "^1.87.6", "bs58": "^6.0.0", "cross-fetch": "^3.1.5", "ethers": "^6", "js-sha3": "^0.8.0" } }, "sha512-4ugOSZOHjwXZhkyIsDVd9y764BvwHl72+yDTrkNXWlyHnkZTbJUd1U/KyFeA0LpUcAD9ocdsvAP8jFJcLWXSPw=="],
+    "@mayanfinance/swap-sdk": ["@mayanfinance/swap-sdk@13.3.0", "", { "dependencies": { "@mysten/sui": "^1.34.0", "@noble/hashes": "1.8.0", "@solana/buffer-layout": "^4 || ^3", "@solana/web3.js": "^1.87.6", "bs58": "^6.0.0", "cross-fetch": "^3.1.5", "ethers": "^6", "js-sha3": "^0.8.0" } }, "sha512-wBsyJB4tTsVEdBeebBykK9KUiLziQ4hLnXomqB8/JT8MjWTCpN50gimAXK/TrepcHkZznQlMarqNNmbGCL9TZw=="],
 
     "@mysten/bcs": ["@mysten/bcs@1.9.2", "", { "dependencies": { "@mysten/utils": "0.2.0", "@scure/base": "^1.2.6" } }, "sha512-kBk5xrxV9OWR7i+JhL/plQrgQ2/KJhB2pB5gj+w6GXhbMQwS3DPpOvi/zN0Tj84jwPvHMllpEl0QHj6ywN7/eQ=="],
 
