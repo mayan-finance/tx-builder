@@ -1,45 +1,39 @@
-# Build stage
+# Build stage — bun for install + bundle
 FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lock ./
-
 # Install dependencies
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-# Copy source code
+# Copy source and typecheck
 COPY src ./src
 COPY tsconfig.json ./
-
-# Type check
 RUN bun run typecheck
 
-# Production stage
-FROM oven/bun:1-slim
+# Bundle to Node-compatible JS in /app/dist
+RUN bun run build
+
+# Production stage — pure node runtime
+FROM node:24-slim
 
 WORKDIR /app
 
-# Copy package files and install production dependencies
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+# curl is only needed for the healthcheck below
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY src ./src
-COPY tsconfig.json ./
+# Copy only the bundled output
+COPY --from=builder /app/dist ./dist
+COPY package.json ./
 
-# Set default environment variables
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# Expose the port
 EXPOSE 3000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Run the server
-CMD ["bun", "run", "src/index.ts"]
-
+CMD ["node", "dist/index.js"]

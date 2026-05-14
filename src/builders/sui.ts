@@ -30,14 +30,14 @@ function convertCoinInput(coinInput: SuiCoinInput | undefined): ComposableSuiMov
 export async function buildSuiTransaction(
   quote: Quote,
   params: BuildSuiTxParams,
-  suiClient: SuiClient
+  suiClient: SuiClient,
+  apiKey?: string,
 ): Promise<SuiTransactionResult> {
   const {
     swapperAddress,
     destinationAddress,
     referrerAddresses,
     customPayload,
-    usdcPermitSignature,
     inputCoin,
     whFeeCoin,
     builtTransaction,
@@ -47,12 +47,8 @@ export async function buildSuiTransaction(
 
   // Build composable options
   const options: ComposableSuiMoveCallsOptions = {
-    apiKey: process.env.SWAP_SDK_API_KEY,
+    apiKey,
   };
-
-  if (usdcPermitSignature) {
-    options.usdcPermitSignature = usdcPermitSignature;
-  }
 
   if (inputCoin) {
     options.inputCoin = convertCoinInput(inputCoin);

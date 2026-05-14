@@ -15,7 +15,8 @@ import type { BuildEvmTxParams, EvmTransactionResult } from '../types';
  */
 export async function buildEvmTransaction(
   quote: Quote,
-  params: BuildEvmTxParams
+  params: BuildEvmTxParams,
+  apiKey?: string
 ): Promise<EvmTransactionResult> {
   const { 
     swapperAddress, 
@@ -24,7 +25,6 @@ export async function buildEvmTransaction(
     permit, 
     referrerAddresses,
     customPayload,
-    usdcPermitSignature 
   } = params;
 
   const payload = customPayload ? hexToBuffer(customPayload) : undefined;
@@ -62,8 +62,7 @@ export async function buildEvmTransaction(
 
   // Non-gasless: Build transaction calldata
   const options = {
-    usdcPermitSignature,
-    apiKey: process.env.SWAP_SDK_API_KEY,
+    apiKey,
   }
   const txPayload = await getSwapFromEvmTxPayload(
     quote,

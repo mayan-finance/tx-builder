@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { Connection } from '@solana/web3.js';
 import { SuiClient } from '@mysten/sui/client';
 import { JsonRpcProvider } from 'ethers';
-import {fetchQuote, type Quote, type QuoteParams, type QuoteOptions, addresses} from '@mayanfinance/swap-sdk';
+import {fetchQuote, fetchTokenList, fetchAllTokenList, type Quote, type QuoteParams, type QuoteOptions, type ChainName, type TokenStandard, addresses} from '@mayanfinance/swap-sdk';
 import { verifyQuoteSignature } from './utils/signature';
 import { buildTransaction, type BuilderConnections } from './builders';
 import { getPermitParams, getHyperCorePermitParams } from './utils/hypercore';
@@ -22,8 +22,10 @@ import type {
   HyperCorePermitParamsResponse,
   FetchQuoteRequest,
   FetchQuoteResponse,
+  FetchTokensResponse,
+  FetchAllTokensResponse,
 } from './types';
-import { getChainCategory } from './types';
+import { getChainCategory, VALID_TOKEN_STANDARDS } from './types';
 
 // Error codes
 const ERROR_CODES = {
@@ -105,35 +107,142 @@ export function createServer(config: ServerConfig) {
     });
   });
 
-  // Fetch quote endpoint
-  app.get('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
+  // Fetch token list for a single chain
+  // Wraps SDK fetchTokenList(chain, nonPortal?, tokenStandards?, apiKey?)
+  app.get('/tokens', async (req: Request, res: Response<FetchTokensResponse | ErrorResponse>) => {
     try {
-      // Parse query parameters with type conversions
-      const query = req.query;
-      const body: FetchQuoteRequest = {
-        fromToken: query.fromToken as string,
-        fromChain: query.fromChain as FetchQuoteRequest['fromChain'],
-        toToken: query.toToken as string,
-        toChain: query.toChain as FetchQuoteRequest['toChain'],
-        slippageBps: query.slippageBps === 'auto' ? 'auto' : Number(query.slippageBps),
-        amount: query.amount !== undefined ? Number(query.amount) : undefined,
-        amountIn64: query.amountIn64 as string | undefined,
-        gasDrop: query.gasDrop !== undefined ? Number(query.gasDrop) : undefined,
-        referrer: query.referrer as string | undefined,
-        referrerBps: query.referrerBps !== undefined ? Number(query.referrerBps) : undefined,
-        wormhole: query.wormhole !== undefined ? query.wormhole === 'true' : undefined,
-        swift: query.swift !== undefined ? query.swift === 'true' : undefined,
-        mctp: query.mctp !== undefined ? query.mctp === 'true' : undefined,
-        shuttle: query.shuttle !== undefined ? query.shuttle === 'true' : undefined,
-        fastMctp: query.fastMctp !== undefined ? query.fastMctp === 'true' : undefined,
-        gasless: query.gasless !== undefined ? query.gasless === 'true' : undefined,
-        onlyDirect: query.onlyDirect !== undefined ? query.onlyDirect === 'true' : undefined,
-        fullList: query.fullList !== undefined ? query.fullList === 'true' : undefined,
-        payload: query.payload as string | undefined,
-        monoChain: query.monoChain !== undefined ? query.monoChain === 'true' : undefined,
-        memoHex: query.payload as string | undefined,
-      };
+      const chain = req.query.chain as ChainName | undefined;
+      if (!chain) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required query param: chain',
+          code: ERROR_CODES.INVALID_REQUEST,
+        });
+      }
 
+      const standardsError = parseTokenStandards(req.query.tokenStandards);
+      if ('error' in standardsError) {
+        return res.status(400).json({
+          success: false,
+          error: standardsError.error,
+          code: ERROR_CODES.INVALID_REQUEST,
+        });
+      }
+
+      const nonPortal = req.query.nonPortal !== undefined
+        ? req.query.nonPortal === 'true'
+        : undefined;
+
+      const apiKey = req.headers['x-api-key'] as string | undefined;
+      const tokens = await fetchTokenList(chain, nonPortal, standardsError.value, apiKey);
+
+      return res.json({ success: true, tokens });
+    } catch (error) {
+      return handleSdkError(error, res, 'Fetch tokens error');
+    }
+  });
+
+  // Fetch token list across every chain, keyed by chain name
+  // Wraps SDK fetchAllTokenList(tokenStandards?, apiKey?)
+  app.get('/tokens/all', async (req: Request, res: Response<FetchAllTokensResponse | ErrorResponse>) => {
+    try {
+      const standardsError = parseTokenStandards(req.query.tokenStandards);
+      if ('error' in standardsError) {
+        return res.status(400).json({
+          success: false,
+          error: standardsError.error,
+          code: ERROR_CODES.INVALID_REQUEST,
+        });
+      }
+
+      const apiKey = req.headers['x-api-key'] as string | undefined;
+      const tokens = await fetchAllTokenList(standardsError.value, apiKey);
+
+      return res.json({ success: true, tokens });
+    } catch (error) {
+      return handleSdkError(error, res, 'Fetch all tokens error');
+    }
+  });
+
+  function handleSdkError(
+    error: unknown,
+    res: Response<ErrorResponse>,
+    logPrefix: string,
+  ) {
+    console.error(`${logPrefix}:`, error);
+
+    const sdkError = error as { code?: string | number; message?: string; msg?: string; data?: unknown };
+    const sdkMessage = sdkError.message || sdkError.msg || 'Unknown error';
+    if (sdkError.code !== undefined) {
+      return res.status(400).json({
+        success: false,
+        error: sdkMessage,
+        code: String(sdkError.code),
+        ...(sdkError.data !== undefined && { data: sdkError.data }),
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      code: ERROR_CODES.INTERNAL_ERROR,
+    });
+  }
+
+  // Fetch quote endpoint (GET — query params only, no extraInstructions support)
+  app.get('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
+    const query = req.query;
+
+    // extraInstructions / solanaBridgeOptions cannot be expressed as query params.
+    // Reject up-front with a clear pointer to POST /quote, since callers might
+    // try to pass them as JSON strings.
+    if (query.extraInstructions !== undefined || query.solanaBridgeOptions !== undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'extraInstructions and solanaBridgeOptions are not supported on GET /quote — they require structured JSON. Use POST /quote with a JSON body instead.',
+        code: ERROR_CODES.INVALID_REQUEST,
+      });
+    }
+
+    const body: FetchQuoteRequest = {
+      fromToken: query.fromToken as string,
+      fromChain: query.fromChain as FetchQuoteRequest['fromChain'],
+      toToken: query.toToken as string,
+      toChain: query.toChain as FetchQuoteRequest['toChain'],
+      slippageBps: query.slippageBps === 'auto' ? 'auto' : Number(query.slippageBps),
+      amount: query.amount !== undefined ? Number(query.amount) : undefined,
+      amountIn64: query.amountIn64 as string | undefined,
+      gasDrop: query.gasDrop !== undefined ? Number(query.gasDrop) : undefined,
+      referrer: query.referrer as string | undefined,
+      referrerBps: query.referrerBps !== undefined ? Number(query.referrerBps) : undefined,
+      wormhole: query.wormhole !== undefined ? query.wormhole === 'true' : undefined,
+      swift: query.swift !== undefined ? query.swift === 'true' : undefined,
+      mctp: query.mctp !== undefined ? query.mctp === 'true' : undefined,
+      shuttle: query.shuttle !== undefined ? query.shuttle === 'true' : undefined,
+      fastMctp: query.fastMctp !== undefined ? query.fastMctp === 'true' : undefined,
+      gasless: query.gasless !== undefined ? query.gasless === 'true' : undefined,
+      onlyDirect: query.onlyDirect !== undefined ? query.onlyDirect === 'true' : undefined,
+      fullList: query.fullList !== undefined ? query.fullList === 'true' : undefined,
+      payload: query.payload as string | undefined,
+      monoChain: query.monoChain !== undefined ? query.monoChain === 'true' : undefined,
+      memoHex: query.memoHex as string | undefined,
+    };
+
+    return handleFetchQuote(body, req, res);
+  });
+
+  // Fetch quote endpoint (POST — JSON body, supports extraInstructions and solanaBridgeOptions)
+  app.post('/quote', async (req: Request, res: Response<FetchQuoteResponse | ErrorResponse>) => {
+    const body = (req.body ?? {}) as FetchQuoteRequest;
+    return handleFetchQuote(body, req, res);
+  });
+
+  async function handleFetchQuote(
+    body: FetchQuoteRequest,
+    req: Request,
+    res: Response<FetchQuoteResponse | ErrorResponse>,
+  ) {
+    try {
       // Validate required fields
       const validationError = validateQuoteRequest(body);
       if (validationError) {
@@ -181,6 +290,19 @@ export function createServer(config: ServerConfig) {
       if (body.monoChain !== undefined) quoteOptions.monoChain = body.monoChain;
       if (body.memoHex) quoteOptions.memoHex = body.memoHex;
 
+      // POST-only options
+      if (body.extraInstructions) {
+        quoteOptions.extraInstructions = body.extraInstructions;
+      }
+      if (body.solanaBridgeOptions) {
+        const { customPayload, ...rest } = body.solanaBridgeOptions;
+        quoteOptions.solanaBridgeOptions = {
+          ...rest,
+          // SDK accepts Buffer | Uint8Array; convert from hex string for wire transport
+          customPayload: customPayload ? Buffer.from(customPayload, 'hex') : undefined,
+        };
+      }
+
       // Fetch quotes
       const quotes = await fetchQuote(quoteParams, quoteOptions);
 
@@ -211,7 +333,7 @@ export function createServer(config: ServerConfig) {
         code: ERROR_CODES.INTERNAL_ERROR,
       });
     }
-  });
+  }
 
   // Build transaction endpoint
   app.post('/build', async (req: Request, res: Response<BuildTransactionResponse | ErrorResponse>) => {
@@ -253,7 +375,8 @@ export function createServer(config: ServerConfig) {
       const transaction = await buildTransaction(
         quote as Quote,
         body.params,
-        connections
+        connections,
+        req.headers['x-api-key'] as string | undefined
       );
 
       return res.json({
@@ -478,6 +601,34 @@ function validateParamsForChain(
   return null;
 }
 
+// Parse the tokenStandards query param. Accepts a comma-separated string
+// (?tokenStandards=erc20,native) or a repeated key (?tokenStandards=erc20&tokenStandards=native).
+// Returns { value } for the parsed array (or undefined when omitted) or { error } on a bad value.
+function parseTokenStandards(
+  raw: unknown,
+): { value: TokenStandard[] | undefined } | { error: string } {
+  if (raw === undefined) return { value: undefined };
+
+  let parts: string[];
+  if (Array.isArray(raw)) {
+    parts = raw.flatMap((v) => String(v).split(','));
+  } else {
+    parts = String(raw).split(',');
+  }
+
+  const standards = parts.map((s) => s.trim()).filter((s) => s.length > 0);
+  if (standards.length === 0) return { value: undefined };
+
+  const invalid = standards.filter((s) => !VALID_TOKEN_STANDARDS.includes(s as TokenStandard));
+  if (invalid.length > 0) {
+    return {
+      error: `Invalid tokenStandards: ${invalid.join(', ')}. Allowed: ${VALID_TOKEN_STANDARDS.join(', ')}.`,
+    };
+  }
+
+  return { value: standards as TokenStandard[] };
+}
+
 function validateQuoteRequest(body: FetchQuoteRequest): string | null {
   const missingFields: string[] = [];
 
@@ -537,7 +688,9 @@ export function startServer(config: ServerConfig) {
   const server = app.listen(config.port, () => {
     console.log(`Mayan TX Builder API running on port ${config.port}`);
     console.log(`   Health check: http://localhost:${config.port}/health`);
-    console.log(`   Quote endpoint: GET http://localhost:${config.port}/quote`);
+    console.log(`   Quote endpoint: GET/POST http://localhost:${config.port}/quote`);
+    console.log(`   Tokens endpoint: GET http://localhost:${config.port}/tokens?chain=…`);
+    console.log(`   All tokens endpoint: GET http://localhost:${config.port}/tokens/all`);
     console.log(`   Build endpoint: POST http://localhost:${config.port}/build`);
   });
 
