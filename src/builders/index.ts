@@ -7,7 +7,6 @@ import {
   type BuildSvmTxParams, 
   type BuildSuiTxParams,
   type TransactionResult,
-  type ChainCategory
 } from '../types';
 import { buildEvmTransaction } from './evm';
 import { buildSvmTransaction } from './svm';
@@ -25,22 +24,23 @@ export interface BuilderConnections {
 export async function buildTransaction(
   quote: Quote,
   params: BuildEvmTxParams | BuildSvmTxParams | BuildSuiTxParams,
-  connections: BuilderConnections
+  connections: BuilderConnections,
+  apiKey?: string,
 ): Promise<TransactionResult> {
   const chainCategory = getChainCategory(quote.fromChain);
 
   switch (chainCategory) {
     case 'evm':
-      return buildEvmTransaction(quote, params as BuildEvmTxParams);
+      return buildEvmTransaction(quote, params as BuildEvmTxParams, apiKey);
 
     case 'svm':
       const svmConnection = quote.fromChain === 'fogo' 
         ? connections.fogo 
         : connections.solana;
-      return buildSvmTransaction(quote, params as BuildSvmTxParams, svmConnection);
+      return buildSvmTransaction(quote, params as BuildSvmTxParams, svmConnection, apiKey);
 
     case 'sui':
-      return buildSuiTransaction(quote, params as BuildSuiTxParams, connections.sui);
+      return buildSuiTransaction(quote, params as BuildSuiTxParams, connections.sui, apiKey);
 
     default:
       throw new Error(`Unsupported chain category: ${chainCategory}`);

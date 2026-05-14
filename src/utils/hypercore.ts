@@ -122,10 +122,6 @@ export async function getHyperCorePermitParams(
   types: typeof PermitTypes;
   value: PermitTypedDataValue;
 }> {
-  // Validate quote has hyperCoreParams
-  if (!quote.hyperCoreParams) {
-    throw new Error('Quote does not have hyperCoreParams');
-  }
 
   // Validate quote is for HyperCore
   if (quote.toChain !== 'hypercore') {
@@ -150,7 +146,7 @@ export async function getHyperCorePermitParams(
     value: {
       owner: userArbitrumAddress,
       spender: HC_ARBITRUM_BRIDGE,
-      value: String(quote.hyperCoreParams.depositAmountUSDC64),
+      value: String('1000000'),
       nonce: String(nonce),
       deadline: String(quote.deadline64),
     },

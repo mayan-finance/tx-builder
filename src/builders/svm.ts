@@ -10,7 +10,6 @@ import {
 import {
   createSwapFromSolanaInstructions,
   type Quote,
-  type ReferrerAddresses,
 } from '@mayanfinance/swap-sdk';
 import type { BuildSvmTxParams, SvmTransactionResult, SerializedInstruction } from '../types';
 import bs58 from 'bs58';
@@ -21,14 +20,14 @@ import bs58 from 'bs58';
 export async function buildSvmTransaction(
   quote: Quote,
   params: BuildSvmTxParams,
-  connection: Connection
+  connection: Connection,
+  apiKey?: string,
 ): Promise<SvmTransactionResult> {
   const {
     swapperAddress,
     destinationAddress,
     referrerAddresses,
     customPayload,
-    usdcPermitSignature,
     allowSwapperOffCurve,
     forceSkipCctpInstructions,
     separateSwapTx,
@@ -45,12 +44,11 @@ export async function buildSvmTransaction(
     connection,
     {
       customPayload: payload,
-      usdcPermitSignature,
       allowSwapperOffCurve,
       forceSkipCctpInstructions,
       separateSwapTx,
       skipProxyMayanInstructions,
-      apiKey: process.env.SWAP_SDK_API_KEY,
+      apiKey,
     }
   );
 
@@ -76,10 +74,16 @@ export async function buildSvmTransaction(
     instructions: result.instructions,
   }).compileToV0Message(lookupTableAccounts);
 
-  // Create versioned transaction (unsigned)
+  // Create versioned transaction and pre-sign with the SDK's ephemeral signers
+  // (PDA-seed keypairs the SDK generated for this call — never the user). Clients
+  // only need to sign with the swapper. `signers` is still returned for
+  // back-compat; re-signing with the same keypair is a no-op (Ed25519 is
+  // deterministic and `VersionedTransaction.sign` just overwrites the slot).
   const transaction = new VersionedTransaction(messageV0);
+  if (result.signers.length > 0) {
+    transaction.sign(result.signers);
+  }
 
-  // Serialize transaction to base64
   const serializedTransaction = Buffer.from(transaction.serialize()).toString('base64');
 
   return {

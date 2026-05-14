@@ -1,4 +1,4 @@
-import type { Quote, Erc20Permit, ReferrerAddresses, ChainName, TokenStandard, QuoteOptions, QuoteParams } from '@mayanfinance/swap-sdk';
+import type { Quote, Erc20Permit, ReferrerAddresses, ChainName, TokenStandard, QuoteOptions, QuoteParams, Token } from '@mayanfinance/swap-sdk';
 
 // Chain categories for routing
 export type ChainCategory = 'evm' | 'svm' | 'sui';
@@ -234,7 +234,33 @@ export type HyperCorePermitParamsResponse = PermitParamsResponse;
 
 // Fetch Quote Types
 
+// Solana instruction info accepted by POST /quote (mirrors SDK's InstructionInfo)
+export interface SolanaKeyInfo {
+  pubkey: string;
+  isSigner: boolean;
+  isWritable: boolean;
+}
+
+export interface InstructionInfo {
+  programId: string;
+  accounts: SolanaKeyInfo[];
+  data: string; // base64-encoded
+}
+
+export interface ExtraInstructionsOption {
+  instructions: InstructionInfo[];
+  lookupTables?: string[];
+}
+
+export interface SolanaBridgeOptionsRequest {
+  forceSkipCctpInstructions?: boolean;
+  skipProxyMayanInstructions?: boolean;
+  customPayload?: string; // hex-encoded bytes
+}
+
 // Flat request combining QuoteParams and QuoteOptions
+// Used for both GET /quote (query params) and POST /quote (JSON body).
+// extraInstructions and solanaBridgeOptions are POST-only.
 export interface FetchQuoteRequest {
   // Required params
   fromToken: string;
@@ -264,6 +290,10 @@ export interface FetchQuoteRequest {
   payload?: string;
   monoChain?: boolean;
   memoHex?: string;
+
+  // POST-only options (cannot be expressed in a query string)
+  extraInstructions?: ExtraInstructionsOption;
+  solanaBridgeOptions?: SolanaBridgeOptionsRequest;
 }
 
 export interface FetchQuoteResponse {
@@ -271,5 +301,33 @@ export interface FetchQuoteResponse {
   quotes: Quote[];
 }
 
-export type { Quote, QuoteParams, QuoteOptions };
+// Fetch Tokens Types
+
+export const VALID_TOKEN_STANDARDS: readonly TokenStandard[] = [
+  'native', 'erc20', 'spl', 'spl2022', 'suicoin', 'hypertoken',
+] as const;
+
+// Filters accepted by GET /tokens (single-chain list)
+export interface FetchTokensRequest {
+  chain: ChainName;
+  nonPortal?: boolean;
+  tokenStandards?: TokenStandard[];
+}
+
+export interface FetchTokensResponse {
+  success: true;
+  tokens: Token[];
+}
+
+// Filters accepted by GET /tokens/all (every chain, grouped by chain)
+export interface FetchAllTokensRequest {
+  tokenStandards?: TokenStandard[];
+}
+
+export interface FetchAllTokensResponse {
+  success: true;
+  tokens: { [chain: string]: Token[] };
+}
+
+export type { Quote, QuoteParams, QuoteOptions, Token, TokenStandard };
 

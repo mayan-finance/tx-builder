@@ -13,6 +13,7 @@ A RESTful API service that generates unsigned transactions for cross-chain swaps
 - **Multi-chain Support**: Build transactions for Solana, Sui, and 10+ EVM chains
 - **Multiple Bridge Protocols**: SWIFT, MCTP, Fast MCTP, Wormhole, and more
 - **Quote Fetching**: Get competitive quotes with automatic route optimization
+- **Token Discovery**: Fetch the Mayan token list per chain or across every chain
 - **Permit Support**: EIP-2612 permit signatures for gasless token approvals
 - **Monochain Swaps**: Single-chain token swaps with DEX aggregation
 - **Quote Signature Verification**: Cryptographic verification of all quotes
@@ -133,6 +134,23 @@ Then run:
 docker compose up -d
 ```
 
+## Authentication
+
+If you have a Mayan API key, pass it on every request as the `x-api-key` HTTP header. This applies to all endpoints that talk to Mayan's backend — `GET /quote`, `POST /quote`, and `POST /build`. The header is optional; requests without an API key are still served at the standard public-RPC rate limits.
+
+```bash
+curl -H "x-api-key: YOUR_API_KEY" \
+  "http://localhost:3000/quote?fromToken=...&fromChain=base&..."
+```
+
+```typescript
+fetch('http://localhost:3000/quote?' + params, {
+  headers: { 'x-api-key': process.env.MAYAN_API_KEY },
+});
+```
+
+The server forwards the key to `@mayanfinance/swap-sdk` for upstream quoting / swap construction — it is never logged or stored. Do not pass the API key as a query parameter.
+
 ## API Endpoints
 
 ### Health Check
@@ -175,6 +193,95 @@ Returns the Mayan Forwarder contract address. Users must approve this address to
 2. **Use permit signature** via the `/permit-params` endpoint (for tokens that support EIP-2612)
 
 See [ERC20 Token Approval](#erc20-token-approval) section for detailed examples.
+
+---
+
+### Fetch Token List (single chain)
+
+```
+GET /tokens
+```
+
+Returns the Mayan-supported token list for a single chain. Thin wrapper around the SDK's `fetchTokenList(chain, nonPortal?, tokenStandards?, apiKey?)`.
+
+**Query Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `chain` | string | Yes | Chain name (e.g. `solana`, `base`, `sui`, `hyperevm`). |
+| `nonPortal` | boolean | No | If `true`, also include tokens that are **not** bridged through Wormhole/Portal. Defaults to the SDK default (`false`). |
+| `tokenStandards` | string | No | Comma-separated list (or repeated key) restricting which token standards to return. Allowed values: `native`, `erc20`, `spl`, `spl2022`, `suicoin`, `hypertoken`. |
+
+Both `?tokenStandards=erc20,native` and `?tokenStandards=erc20&tokenStandards=native` are accepted.
+
+**Example:**
+
+```bash
+curl "http://localhost:3000/tokens?chain=base&tokenStandards=erc20,native"
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "tokens": [
+    {
+      "name": "USDC",
+      "symbol": "USDC",
+      "mint": "EfqRM8ZGWhDTKJ7BHmFvNagKVu3AxQRDQs8WMMaoBCu6",
+      "contract": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "chainId": 8453,
+      "wChainId": 30,
+      "decimals": 6,
+      "logoURI": "https://...",
+      "coingeckoId": "usd-coin",
+      "supportsPermit": true,
+      "verified": true,
+      "standard": "erc20"
+    }
+  ]
+}
+```
+
+The server forwards the `x-api-key` header to the SDK when present.
+
+---
+
+### Fetch Token List (all chains)
+
+```
+GET /tokens/all
+```
+
+Returns the Mayan-supported token list for every chain, keyed by chain name. Thin wrapper around the SDK's `fetchAllTokenList(tokenStandards?, apiKey?)`.
+
+**Query Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tokenStandards` | string | No | Comma-separated list (or repeated key) restricting which token standards to return. Allowed values: `native`, `erc20`, `spl`, `spl2022`, `suicoin`, `hypertoken`. |
+
+**Example:**
+
+```bash
+curl "http://localhost:3000/tokens/all?tokenStandards=native"
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "tokens": {
+    "solana":   [ { "symbol": "SOL", "standard": "native", ... } ],
+    "base":     [ { "symbol": "ETH", "standard": "native", ... } ],
+    "arbitrum": [ { "symbol": "ETH", "standard": "native", ... } ]
+  }
+}
+```
+
+The server forwards the `x-api-key` header to the SDK when present.
 
 ---
 
@@ -256,6 +363,82 @@ GET /quote?fromToken=0x833589fcd6edb6e08f4c7c32d4f71b54bda02913&fromChain=base&t
 
 ---
 
+### Fetch Quote (POST — for `extraInstructions` and `solanaBridgeOptions`)
+
+```
+POST /quote
+```
+
+`@mayanfinance/swap-sdk` v13+ calls Mayan's quoter via HTTP POST by default. This route mirrors that flow: it accepts the same fields as `GET /quote` plus two structured options that can't be expressed in a query string — `extraInstructions` and `solanaBridgeOptions`.
+
+If you pass `extraInstructions` or `solanaBridgeOptions` to `GET /quote`, the server returns a `400 INVALID_REQUEST` pointing you here.
+
+**Request Body:**
+```json
+{
+  "fromToken": "So11111111111111111111111111111111111111112",
+  "fromChain": "solana",
+  "toToken": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  "toChain": "arbitrum",
+  "amountIn64": "250000000",
+  "slippageBps": "auto",
+
+  "extraInstructions": {
+    "instructions": [
+      {
+        "programId": "YourProgram1111111111111111111111111111111",
+        "accounts": [
+          { "pubkey": "...", "isSigner": false, "isWritable": true }
+        ],
+        "data": "BASE64_ENCODED_INSTRUCTION_DATA"
+      }
+    ],
+    "lookupTables": []
+  }
+}
+```
+
+All the fields accepted by `GET /quote` are also accepted in the JSON body. The response shape is identical to `GET /quote`.
+
+#### `extraInstructions` (Solana-only)
+
+When you need to pack your own Solana instructions (a pre-swap token transfer, a wrap step, any custom on-chain action) into the **same** transaction as the Mayan swap, describe them here so the quoter sizes a swap route that leaves room for them. The backend picks instructions whose combined size fits inside a single v0 transaction (under the UDP/MTU packet limit).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `instructions` | `InstructionInfo[]` | Your extra instructions. See type below. |
+| `lookupTables` | `string[]` (optional) | Base58 ALT addresses your instructions rely on, so the quoter can size the transaction correctly. |
+
+```typescript
+type SolanaKeyInfo = {
+  pubkey: string;       // base58
+  isSigner: boolean;
+  isWritable: boolean;
+};
+
+type InstructionInfo = {
+  programId: string;    // base58
+  accounts: SolanaKeyInfo[];
+  data: string;         // base64-encoded instruction data
+};
+```
+
+`extraInstructions` is a **sizing hint** only — you are still responsible for appending those same instructions to the on-chain transaction yourself before signing.
+
+#### `solanaBridgeOptions` (Solana source only)
+
+Forwarded to the SDK as-is, with one transport detail: `customPayload` is sent over the wire as a **hex string** and converted to bytes server-side.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `forceSkipCctpInstructions` | `boolean` | Bypass CCTP instructions in the bundled tx. |
+| `skipProxyMayanInstructions` | `boolean` | Skip Mayan proxy instructions. |
+| `customPayload` | `string` (hex) | Custom payload bytes encoded as a hex string. |
+
+See the [@mayanfinance/swap-sdk README](https://www.npmjs.com/package/@mayanfinance/swap-sdk) for the full semantics of each option.
+
+---
+
 ### Build Transaction
 
 ```
@@ -314,6 +497,8 @@ Builds an unsigned transaction from a signed quote.
   }
 }
 ```
+
+The serialized `transaction` is already partially signed by any SDK-generated ephemeral signers (e.g. PDA-seed keypairs) — clients only need to sign as the swapper before broadcasting. The `signers` field is preserved for backwards compatibility; re-signing with those keypairs is a harmless no-op (Ed25519 is deterministic, so the signature bytes are identical).
 
 **Sui Response:**
 ```json
@@ -379,21 +564,19 @@ Gets EIP-2612 permit parameters for gasless token approvals.
 
 ---
 
-### Get HyperCore Permit Parameters
+### HyperCore (Hyperliquid Core) as a Destination
 
-```
-POST /hypercore/permit-params
-```
+Since `@mayanfinance/swap-sdk` v13.3.0, depositing into HyperCore **no longer requires a separate user permit signature**. Fetch a quote with `toChain: "hypercore"` and call `POST /build` exactly like any other destination — the resulting transaction already handles the HyperCore deposit end-to-end from the user's single swap signature.
 
-Gets permit parameters for HyperCore USDC deposits on Arbitrum.
+The `params.usdcPermitSignature` field on `POST /build` is preserved for backwards compatibility but is now a no-op for HyperCore destinations. New integrations should leave it unset.
 
-**Request Body:**
-```json
-{
-  "quote": { /* Quote object */ },
-  "userArbitrumAddress": "0xYourArbitrumAddress"
-}
-```
+Pass the user's HyperCore destination address (an EVM-style `0x…` address) as `params.destinationAddress`. The choice between **USDC (spot)** and **USDC (perps)** is encoded automatically by the `toToken` returned in the quote.
+
+> **Sui → HyperCore is temporarily disabled** in this release; the SDK throws on that combination. A dedicated entry point will ship in the next release.
+
+See the [@mayanfinance/swap-sdk README](https://www.npmjs.com/package/@mayanfinance/swap-sdk) for the full HyperCore notes.
+
+> **Note on `POST /hypercore/permit-params`**: This endpoint still exists for backwards compatibility with older clients, but it is no longer needed — see above. New integrations should ignore it.
 
 ## Usage Examples
 
@@ -495,20 +678,13 @@ const buildResponse = await fetch('http://localhost:3000/build', {
 ### Solana Transaction
 
 ```typescript
-import { Connection, VersionedTransaction, Keypair } from '@solana/web3.js';
-import bs58 from 'bs58';
+import { Connection, VersionedTransaction } from '@solana/web3.js';
 
 // After building the transaction...
+// The returned tx is already partially signed by any SDK-generated ephemeral
+// signers (PDA-seed keypairs); the client only needs to sign as the swapper.
 const txBuffer = Buffer.from(transaction.transaction, 'base64');
 const tx = VersionedTransaction.deserialize(txBuffer);
-
-// Sign with additional signers if provided
-if (transaction.signers?.length > 0) {
-  const additionalSigners = transaction.signers.map(s =>
-    Keypair.fromSecretKey(bs58.decode(s))
-  );
-  tx.sign(additionalSigners);
-}
 
 // Sign with user's keypair
 tx.sign([userKeypair]);
@@ -738,8 +914,6 @@ src/
 │   ├── evm.ts        # EVM transaction builder
 │   ├── svm.ts        # Solana transaction builder
 │   └── sui.ts        # Sui transaction builder
-├── middleware/
-│   └── apiKey.ts     # Request metrics tracking
 └── utils/
     ├── signature.ts  # Quote signature verification
     └── hypercore.ts  # HyperCore permit utilities
